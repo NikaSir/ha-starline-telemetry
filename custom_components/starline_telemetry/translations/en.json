@@ -2,6 +2,14 @@
   "config": {
     "step": {
       "user": {
+        "title": "StarLine",
+        "description": "Choose the data source for the StarLine panel.",
+        "menu_options": {
+          "core_bridge": "Use the existing Home Assistant StarLine integration",
+          "telemetry": "Connect standalone read-only telemetry"
+        }
+      },
+      "telemetry": {
         "title": "Connect StarLine Telemetry",
         "description": "Read-only connection to the official StarLine Open API. Vehicle control commands are not implemented.",
         "data": {
@@ -30,7 +38,8 @@
       "api_user_info": "StarLine API failed while retrieving the vehicle list (user_info)."
     },
     "abort": {
-      "already_configured": "This StarLine account is already configured."
+      "already_configured": "This StarLine account is already configured.",
+      "core_starline_not_found": "The Home Assistant StarLine integration was not found."
     }
   },
   "entity": {
