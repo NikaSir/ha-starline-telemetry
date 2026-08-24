@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription
-from homeassistant.const import PERCENTAGE, UnitOfElectricPotential, UnitOfLength, UnitOfTemperature, UnitOfVolume
+from homeassistant.const import PERCENTAGE, UnitOfElectricPotential, UnitOfTemperature, UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -72,8 +72,6 @@ SENSORS: tuple[StarLineSensorDescription, ...] = (
         key="odometer",
         translation_key="odometer",
         path=("obd", "mileage"),
-        device_class=SensorDeviceClass.DISTANCE,
-        native_unit_of_measurement=UnitOfLength.KILOMETERS,
     ),
     StarLineSensorDescription(
         key="last_activity",
@@ -113,6 +111,8 @@ class StarLineTelemetrySensor(StarLineTelemetryEntity, SensorEntity):
     def native_value(self) -> Any:
         """Return the current sensor value."""
         value = nested_value(self.device_data, self.entity_description.path)
+        if value is None:
+            return None
         if self.entity_description.value_fn is not None:
             return self.entity_description.value_fn(value)
         return value
