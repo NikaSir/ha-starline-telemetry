@@ -3,6 +3,12 @@
   "name": "StarLine Telemetry",
   "codeowners": ["@NikaSir"],
   "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http",
+    "panel_custom",
+    "websocket_api"
+  ],
   "documentation": "https://github.com/NikaSir/ha-starline-telemetry",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
