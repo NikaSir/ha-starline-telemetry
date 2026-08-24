@@ -31,7 +31,7 @@ The public StarLine Open API documents a limit of **1000 requests/day per user**
 
 ## Current baseline
 
-Version: `0.1.0`
+Internal integration version: `0.1.0`
 
 Platforms:
 
@@ -52,6 +52,21 @@ Initial telemetry mapping includes, when provided by the device:
 - GPS position and accuracy.
 
 Entities are created only when the corresponding field is present in the first device snapshot, to avoid filling Home Assistant with permanently unavailable entities.
+
+## Update model
+
+The project uses **commit-based updates from `main`**.
+
+- `main` is the deployment source of truth;
+- changes are validated in a pull request and then merged into `main`;
+- HACS downloads the current selected commit from `main`;
+- GitHub Releases are not used;
+- release tags are not used as the update channel;
+- the `version` field in `manifest.json` is an internal integration version only.
+
+After HACS downloads a changed custom component, restart Home Assistant before testing the new code.
+
+See [`docs/UPDATE_POLICY.md`](docs/UPDATE_POLICY.md) for the repository policy.
 
 ## Installation
 
@@ -78,7 +93,7 @@ StarLine requires an Open API application. Obtain `AppId` and `Secret` in the de
 
 The password is SHA-1 hashed before it is stored in the Home Assistant config entry. The App Secret must remain available to renew StarLine application tokens and is stored as a secret configuration value.
 
-> Two-factor authentication is not supported in the `0.1.0` baseline. It is tracked as a follow-up item before a stable release.
+> Two-factor authentication is not supported in the `0.1.0` baseline. It is tracked as a follow-up item before this baseline is considered validated for regular use.
 
 ## Dashboard
 
@@ -97,6 +112,7 @@ The UI architecture follows: **Status → Control → Diagnostics**. For this pr
 4. Raw credentials, tokens and coordinates are removed from diagnostics.
 5. Unsupported telemetry is omitted instead of represented as permanent `unavailable` entities.
 6. Dashboard entity binding is contract-driven rather than hard-coded to one installation.
+7. Delivery is commit-based from `main`; GitHub Releases are not part of the update process.
 
 ## License
 
