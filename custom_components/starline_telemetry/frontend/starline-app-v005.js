@@ -10,7 +10,11 @@ class StarLineAppPanelV005 extends BASE_COMPONENT {
     const value = state === null ? "—" : state ? "Поднят" : "Снят";
     const tone = state === true ? "active" : "muted";
     return `<button class="telemetry-chip parking ${tone}" data-entity="${this._escape(entity.entityId)}">
-      <ha-icon icon="mdi:car-brake-hold"></ha-icon><span>Ручник</span><strong style="font-size:11px;letter-spacing:-0.01em">${this._escape(value)}</strong>
+      <ha-icon icon="mdi:car-brake-hold"></ha-icon>
+      <div style="min-width:0;display:flex;flex-direction:column;justify-content:center;gap:3px">
+        <span style="display:block">Ручник</span>
+        <strong style="display:block;font-size:11px;line-height:1;overflow:visible;text-overflow:clip">${this._escape(value)}</strong>
+      </div>
     </button>`;
   }
 }
