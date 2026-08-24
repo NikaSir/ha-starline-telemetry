@@ -23,9 +23,13 @@ from .api import (
 from .const import (
     CONF_APP_ID,
     CONF_APP_SECRET,
+    CONF_MODE,
     CONF_PASSWORD_HASH,
     CONF_USERNAME,
+    CORE_STARLINE_DOMAIN,
     DOMAIN,
+    MODE_CORE_BRIDGE,
+    MODE_TELEMETRY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -62,7 +66,29 @@ class StarLineTelemetryConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Handle the initial configuration step."""
+        """Choose between the existing StarLine bridge and own telemetry."""
+        options = ["telemetry"]
+        if self.hass.config_entries.async_entries(CORE_STARLINE_DOMAIN):
+            options.insert(0, "core_bridge")
+        return self.async_show_menu(step_id="user", menu_options=options)
+
+    async def async_step_core_bridge(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Create a panel-only entry backed by the existing core integration."""
+        if not self.hass.config_entries.async_entries(CORE_STARLINE_DOMAIN):
+            return self.async_abort(reason="core_starline_not_found")
+        await self.async_set_unique_id("core_starline_bridge")
+        self._abort_if_unique_id_configured()
+        return self.async_create_entry(
+            title="StarLine Panel",
+            data={CONF_MODE: MODE_CORE_BRIDGE},
+        )
+
+    async def async_step_telemetry(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Configure the standalone read-only telemetry source."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -94,6 +120,7 @@ class StarLineTelemetryConfigFlow(ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(
                     title=username,
                     data={
+                        CONF_MODE: MODE_TELEMETRY,
                         CONF_APP_ID: str(user_input[CONF_APP_ID]).strip(),
                         CONF_APP_SECRET: str(user_input[CONF_APP_SECRET]).strip(),
                         CONF_USERNAME: username,
@@ -102,7 +129,7 @@ class StarLineTelemetryConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
 
         return self.async_show_form(
-            step_id="user",
+            step_id="telemetry",
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_APP_ID): str,
