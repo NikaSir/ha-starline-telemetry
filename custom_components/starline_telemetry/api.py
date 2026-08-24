@@ -64,7 +64,7 @@ class StarLineApiClient:
         """Authenticate with StarLine ID and WebAPI."""
         app_code_payload = await self._request_json(
             "GET",
-            f"{STARLINE_ID_BASE_URL}/apiV3/application/getCode",
+            f"{STARLINE_ID_BASE_URL}/apiV3/application/getCode/",
             params={
                 "appId": self._app_id,
                 "secret": hashlib.md5(
@@ -76,7 +76,7 @@ class StarLineApiClient:
 
         app_token_payload = await self._request_json(
             "GET",
-            f"{STARLINE_ID_BASE_URL}/apiV3/application/getToken",
+            f"{STARLINE_ID_BASE_URL}/apiV3/application/getToken/",
             params={
                 "appId": self._app_id,
                 "secret": hashlib.md5(
@@ -88,24 +88,30 @@ class StarLineApiClient:
 
         login_payload = await self._request_json(
             "POST",
-            f"{STARLINE_ID_BASE_URL}/apiV3/user/login",
-            headers={"token": app_token},
+            f"{STARLINE_ID_BASE_URL}/apiV3/user/login/",
+            params={"token": app_token},
             data={"login": self._username, "pass": self._password_hash},
         )
-        if login_payload.get("state") != 1:
-            desc = login_payload.get("desc")
-            message = str(desc.get("message", "")) if isinstance(desc, dict) else str(desc or "")
-            if "Need confirmation" in message:
-                raise StarLineTwoFactorRequired(message)
+        state = self._state(login_payload)
+        desc = login_payload.get("desc")
+        if state != 1:
+            if state == 2 or (
+                isinstance(desc, dict)
+                and ("phone" in desc or "captchaSid" in desc)
+            ):
+                raise StarLineTwoFactorRequired("StarLine confirmation is required")
+            message = (
+                str(desc.get("message", ""))
+                if isinstance(desc, dict)
+                else str(desc or "")
+            )
             raise StarLineAuthenticationError(message or "StarLine login failed")
 
-        desc = login_payload.get("desc")
         if not isinstance(desc, dict):
             raise StarLineAuthenticationError("StarLine login response is invalid")
 
         user_token = desc.get("user_token")
-        user_id = desc.get("id")
-        if not user_token or user_id is None:
+        if not user_token:
             raise StarLineAuthenticationError("StarLine login response has no token")
 
         auth_payload, slnet_token = await self._request_json_with_cookie(
@@ -113,25 +119,27 @@ class StarLineApiClient:
             f"{STARLINE_API_BASE_URL}/json/v2/auth.slid",
             json={"slid_token": user_token},
         )
-        if auth_payload.get("code") != 200 or not slnet_token:
+        auth_user_id = auth_payload.get("user_id")
+        if auth_payload.get("code") != 200 or not slnet_token or auth_user_id is None:
             raise StarLineAuthenticationError(
                 str(auth_payload.get("codestring", "WebAPI authentication failed"))
             )
 
         self._slnet_token = slnet_token
-        self.user_id = int(auth_payload.get("user_id", user_id))
+        self.user_id = int(auth_user_id)
 
     async def async_get_devices(self) -> list[StarLineDevice]:
-        """Return devices visible to the authenticated account."""
+        """Return owned and shared devices visible to the account."""
         if self.user_id is None:
             raise StarLineAuthenticationError("StarLine client is not authenticated")
 
-        payload = await self._api_get(
-            f"/json/v1/user/{self.user_id}/deviceList",
-            params={"imei": "true", "alias": "true", "pos": "true", "status": "true"},
-        )
-        data = payload.get("data")
-        devices_raw = data.get("devices", []) if isinstance(data, dict) else []
+        payload = await self._api_get(f"/json/v2/user/{self.user_id}/user_info")
+        devices_raw: list[Any] = []
+        for key in ("devices", "shared_devices"):
+            value = payload.get(key)
+            if isinstance(value, list):
+                devices_raw.extend(value)
+
         devices: list[StarLineDevice] = []
         for item in devices_raw:
             if not isinstance(item, dict) or item.get("device_id") is None:
@@ -206,10 +214,22 @@ class StarLineApiClient:
         return payload, slnet_token
 
     @staticmethod
-    def _slid_value(payload: dict[str, Any], key: str) -> str:
-        if payload.get("state") != 1:
+    def _state(payload: dict[str, Any]) -> int:
+        """Return StarLine ID response state as an integer."""
+        try:
+            return int(payload.get("state", -1))
+        except (TypeError, ValueError):
+            return -1
+
+    @classmethod
+    def _slid_value(cls, payload: dict[str, Any], key: str) -> str:
+        if cls._state(payload) != 1:
             desc = payload.get("desc")
-            message = str(desc.get("message", "SLID request failed")) if isinstance(desc, dict) else str(desc or "SLID request failed")
+            message = (
+                str(desc.get("message", "SLID request failed"))
+                if isinstance(desc, dict)
+                else str(desc or "SLID request failed")
+            )
             raise StarLineAuthenticationError(message)
         desc = payload.get("desc")
         value = desc.get(key) if isinstance(desc, dict) else None
