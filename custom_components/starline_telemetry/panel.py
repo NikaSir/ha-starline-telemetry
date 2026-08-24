@@ -29,8 +29,8 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 PANEL_STATIC_URL = f"/{DOMAIN}_static"
-PANEL_COMPONENT = "starline-app-panel-v002"
-PANEL_MODULE = f"{PANEL_STATIC_URL}/starline-app-v002.js?v={PANEL_VERSION}"
+PANEL_COMPONENT = "starline-app-panel-v003"
+PANEL_MODULE = f"{PANEL_STATIC_URL}/starline-app-v003.js?v={PANEL_VERSION}"
 
 _DATA_PANEL_REGISTERED = "native_panel_registered"
 _DATA_STATIC_REGISTERED = "native_panel_static_registered"
@@ -75,8 +75,6 @@ def _discover_vehicle_entities(hass: HomeAssistant) -> list[dict[str, Any]]:
     registry = er.async_get(hass)
     vehicles: dict[str, dict[str, Any]] = {}
 
-    # Existing Home Assistant core StarLine integration. This is the active source
-    # during bridge mode and remains a fallback after our own telemetry is ready.
     for registry_entry in registry.entities.values():
         if registry_entry.platform != CORE_STARLINE_DOMAIN:
             continue
@@ -90,8 +88,6 @@ def _discover_vehicle_entities(hass: HomeAssistant) -> list[dict[str, Any]]:
         bucket["sources"][key] = "core_starline"
         _apply_device_metadata(hass, bucket, registry_entry.device_id)
 
-    # Future migration path: integration-owned telemetry wins role-by-role without
-    # changing the UI contract or user-renamed entity_id values.
     for registry_entry in registry.entities.values():
         if registry_entry.platform != DOMAIN:
             continue
