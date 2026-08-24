@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription
-from homeassistant.const import PERCENTAGE, UnitOfElectricPotential, UnitOfTemperature, UnitOfVolume
+from homeassistant.const import UnitOfElectricPotential, UnitOfRatio, UnitOfTemperature, UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -59,7 +59,7 @@ SENSORS: tuple[StarLineSensorDescription, ...] = (
         key="fuel_percent",
         translation_key="fuel_percent",
         path=("obd", "fuel_percent"),
-        native_unit_of_measurement=PERCENTAGE,
+        native_unit_of_measurement=UnitOfRatio.PERCENTAGE,
     ),
     StarLineSensorDescription(
         key="fuel_litres",
@@ -139,6 +139,6 @@ class StarLineTelemetrySensor(StarLineTelemetryEntity, SensorEntity):
             if battery_type == "volt":
                 return UnitOfElectricPotential.VOLT
             if battery_type == "percent":
-                return PERCENTAGE
+                return UnitOfRatio.PERCENTAGE
             return None
         return self.entity_description.native_unit_of_measurement
