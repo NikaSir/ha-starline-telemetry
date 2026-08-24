@@ -1,0 +1,12 @@
+{
+  "domain": "starline_telemetry",
+  "name": "StarLine Telemetry",
+  "codeowners": ["@NikaSir"],
+  "config_flow": true,
+  "documentation": "https://github.com/NikaSir/ha-starline-telemetry",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/NikaSir/ha-starline-telemetry/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
