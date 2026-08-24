@@ -1,0 +1,16 @@
+name: HACS validation
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@main
+        with:
+          category: integration
+          # Repository topics are managed in GitHub metadata, not in source.
+          # Remove this ignore as soon as at least one repository topic is set.
+          ignore: topics

@@ -1,0 +1,56 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect StarLine Telemetry",
+        "description": "Read-only connection to the official StarLine Open API. Vehicle control commands are not implemented.",
+        "data": {
+          "app_id": "App ID",
+          "app_secret": "App Secret",
+          "username": "StarLine login",
+          "password": "StarLine password"
+        },
+        "data_description": {
+          "app_id": "Application identifier from the StarLine developer section.",
+          "app_secret": "Application secret from the StarLine developer section.",
+          "username": "Login for the StarLine account that owns the vehicle.",
+          "password": "Password is SHA-1 hashed before it is stored in Home Assistant."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect to StarLine or no vehicle was returned.",
+      "invalid_auth": "StarLine authentication failed.",
+      "two_factor_not_supported": "Two-factor authentication is not supported by this baseline yet."
+    },
+    "abort": {
+      "already_configured": "This StarLine account is already configured."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery": {"name": "Battery"},
+      "cabin_temperature": {"name": "Cabin temperature"},
+      "engine_temperature": {"name": "Engine temperature"},
+      "gps_satellites": {"name": "GPS satellites"},
+      "gsm_level": {"name": "GSM level"},
+      "fuel_percent": {"name": "Fuel level"},
+      "fuel_litres": {"name": "Fuel volume"},
+      "odometer": {"name": "Odometer"},
+      "last_activity": {"name": "Last activity"}
+    },
+    "binary_sensor": {
+      "armed": {"name": "Armed"},
+      "alarm": {"name": "Alarm"},
+      "door": {"name": "Door"},
+      "hood": {"name": "Hood"},
+      "trunk": {"name": "Trunk"},
+      "ignition": {"name": "Ignition"},
+      "engine_running": {"name": "Engine running"},
+      "service_mode": {"name": "Service mode"}
+    },
+    "device_tracker": {
+      "vehicle_location": {"name": "Location"}
+    }
+  }
+}
