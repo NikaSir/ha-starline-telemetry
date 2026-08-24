@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: 0.2.0
+version: 0.3.0
 mode: read_only
 architecture: CONTRACT_GENERATED_UI
 parent: house.vehicles
@@ -11,7 +11,10 @@ rules:
   unavailable_is_normal: false
   entity_binding: registry_unique_id
   user_renamed_entity_ids: supported
-  more_info_on_tap: true
+  more_info_on_tap: read_only_domains_only
+  history_source: home_assistant_recorder
+  trips_source: device_tracker_history
+  external_starline_history_calls: forbidden
 
 source_priority:
   - starline_telemetry
@@ -24,6 +27,7 @@ source_unique_id_patterns:
 role_aliases:
   armed: [armed, lock]
   engine_running: [engine_running, run]
+  ignition: [ignition, run]
   cabin_temperature: [cabin_temperature, ctemp]
   engine_temperature: [engine_temperature, etemp]
   gsm_level: [gsm_level, gsm_lvl]
@@ -31,6 +35,7 @@ role_aliases:
   fuel: [fuel, fuel_percent, fuel_litres]
   odometer: [odometer, mileage]
   location: [vehicle_location, location]
+  parking: [hbrake]
 
 core_starline_roles:
   state: [lock, alarm, door, hood, trunk, hbrake, run, r_start]
@@ -46,24 +51,58 @@ telemetry_roles:
   connectivity: [gsm_level, gps_satellites, vehicle_location]
   diagnostics: [last_activity]
 
+status_screen:
+  header:
+    vehicle_selector: true
+    online_state: true
+    diagnostics_button: true
+  telemetry_priority:
+    - gps_satellites
+    - gsm_level
+    - battery
+    - fuel
+    - cabin_temperature
+    - engine_temperature
+    - odometer
+    - parking
+  vehicle_mnemonic:
+    show_security: true
+    show_engine: true
+    show_perimeter: true
+    show_last_event: true
+  map:
+    source: home_assistant_map_card
+    current_location_only: true
+
+history:
+  window_hours: 24
+  source: home_assistant_history_api
+  roles: [armed, lock, alarm, door, hood, trunk, parking, ignition, engine_running, r_start, service_mode]
+  commands: []
+
+trips:
+  window_hours: 72
+  source: device_tracker_recorder_history
+  map_source: home_assistant_map_card
+  route_estimation: haversine_from_recorded_points
+  commands: []
+
 tabs:
-  - id: overview
-    title: Обзор
-    purpose: current_vehicle_summary
-  - id: security
-    title: Охрана
-    purpose: security_state
+  - id: status
+    title: Состояние
+    purpose: current_vehicle_summary_location_and_last_event
+  - id: history
+    title: История
+    purpose: vehicle_state_event_timeline
     commands: []
-  - id: engine
-    title: Двигатель
-    purpose: engine_and_temperature_state
+  - id: trips
+    title: Поездки
+    purpose: recorder_based_movement_history
     commands: []
-  - id: auto
-    title: Авто
-    purpose: location_resources_and_connectivity
-  - id: service
-    title: Сервис
-    purpose: diagnostics_and_source_health
+  - id: diagnostics
+    title: Диагностика
+    purpose: source_health_entity_availability_and_read_only_boundary
+    commands: []
 
 migration:
   current: core_starline_bridge
