@@ -10,23 +10,20 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .coordinator import StarLineTelemetryCoordinator
 
-_MISSING = object()
 
-
-def nested_value(data: dict[str, Any], path: tuple[str, ...]) -> Any:
-    """Get a nested dictionary value, returning a private sentinel when absent."""
+def nested_value(data: dict[str, Any], path: tuple[str, ...]) -> Any | None:
+    """Get a nested dictionary value, returning None when absent."""
     value: Any = data
     for key in path:
         if not isinstance(value, dict) or key not in value:
-            return _MISSING
+            return None
         value = value[key]
     return value
 
 
 def has_nested_value(data: dict[str, Any], path: tuple[str, ...]) -> bool:
     """Return whether a nested telemetry field exists and is not null."""
-    value = nested_value(data, path)
-    return value is not _MISSING and value is not None
+    return nested_value(data, path) is not None
 
 
 class StarLineTelemetryEntity(CoordinatorEntity[StarLineTelemetryCoordinator]):
