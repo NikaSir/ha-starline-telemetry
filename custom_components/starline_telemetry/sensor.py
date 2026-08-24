@@ -8,7 +8,13 @@ from datetime import UTC, datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorEntityDescription
-from homeassistant.const import UnitOfElectricPotential, UnitOfRatio, UnitOfTemperature, UnitOfVolume
+from homeassistant.const import (
+    UnitOfElectricPotential,
+    UnitOfLength,
+    UnitOfRatio,
+    UnitOfTemperature,
+    UnitOfVolume,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -47,7 +53,7 @@ SENSORS: tuple[StarLineSensorDescription, ...] = (
     StarLineSensorDescription(
         key="gps_satellites",
         translation_key="gps_satellites",
-        path=("common", "gps_lvl"),
+        path=("position", "sat_qty"),
         native_unit_of_measurement="satellites",
     ),
     StarLineSensorDescription(
@@ -72,6 +78,8 @@ SENSORS: tuple[StarLineSensorDescription, ...] = (
         key="odometer",
         translation_key="odometer",
         path=("obd", "mileage"),
+        device_class=SensorDeviceClass.DISTANCE,
+        native_unit_of_measurement=UnitOfLength.KILOMETERS,
     ),
     StarLineSensorDescription(
         key="last_activity",
