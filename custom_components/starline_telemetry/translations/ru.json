@@ -2,6 +2,14 @@
   "config": {
     "step": {
       "user": {
+        "title": "StarLine",
+        "description": "Выберите источник данных для панели StarLine.",
+        "menu_options": {
+          "core_bridge": "Использовать существующую интеграцию StarLine",
+          "telemetry": "Подключить собственную read-only телеметрию"
+        }
+      },
+      "telemetry": {
         "title": "Подключение StarLine Telemetry",
         "description": "Read-only подключение к официальному StarLine Open API. Команды управления автомобилем не реализованы.",
         "data": {
@@ -30,7 +38,8 @@
       "api_user_info": "StarLine API недоступен на этапе получения списка автомобилей (user_info)."
     },
     "abort": {
-      "already_configured": "Эта учетная запись StarLine уже настроена."
+      "already_configured": "Эта учетная запись StarLine уже настроена.",
+      "core_starline_not_found": "Штатная интеграция Home Assistant StarLine не найдена."
     }
   },
   "entity": {
