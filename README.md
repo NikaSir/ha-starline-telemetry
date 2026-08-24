@@ -13,6 +13,7 @@ Implemented scope:
 - read-only polling through `GET /json/v3/device/{device_id}/data`;
 - Home Assistant sensors, binary sensors and GPS device tracker;
 - redacted diagnostics;
+- a native read-only StarLine panel with a compatibility bridge to the Home Assistant core `starline` integration;
 - a semantic UI contract and dashboard workspace.
 
 Explicitly out of scope:
@@ -82,9 +83,19 @@ to:
 
 Restart Home Assistant and add **StarLine Telemetry** from **Settings → Devices & services → Add integration**.
 
-### Credentials
+### Existing StarLine bridge
 
-StarLine requires an Open API application. Obtain `AppId` and `Secret` in the developer section of `my.starline.ru`, then configure the integration with:
+If Home Assistant already has the standard **StarLine** integration configured, choose:
+
+**Use the existing Home Assistant StarLine integration**
+
+This creates a panel-only bridge entry. No App ID, App Secret, login or password is requested. The native panel discovers StarLine entities through the Home Assistant entity registry using stable StarLine `unique_id` values and groups them by vehicle.
+
+Bridge mode is strictly read-only. Writable entities exposed by the standard StarLine integration may be used as state sources, but the panel does not call their services and blocks more-info for `lock`, `switch` and `button` domains.
+
+### Standalone telemetry credentials
+
+For the standalone telemetry source, StarLine requires an Open API application. Obtain `AppId` and `Secret` in the developer section of `my.starline.ru`, then configure the integration with:
 
 - App ID;
 - App Secret;
@@ -97,12 +108,23 @@ The password is SHA-1 hashed before it is stored in the Home Assistant config en
 
 ## Dashboard
 
-The dashboard is developed separately from the transport layer but lives in the same repository. See:
+The native panel lives at `/starline` and uses the fixed phone-first navigation:
+
+**Обзор → Охрана → Двигатель → Авто → Сервис**
+
+The logical parent is **Дом → Автомобили** (`house.vehicles`).
+
+Data source priority is role-by-role:
+
+1. `starline_telemetry` entities when available;
+2. Home Assistant core `starline` entities as the compatibility source.
+
+The layout does not change when the source is migrated.
+
+See:
 
 - `contracts/starline_ui_contract.yaml`
 - `dashboard/README.md`
-
-The UI architecture follows: **Status → Control → Diagnostics**. For this project the **Control** section is informational/read-only; no vehicle command is exposed.
 
 ## Development principles
 
@@ -111,8 +133,9 @@ The UI architecture follows: **Status → Control → Diagnostics**. For this pr
 3. API quota is treated as a design constraint.
 4. Raw credentials, tokens and coordinates are removed from diagnostics.
 5. Unsupported telemetry is omitted instead of represented as permanent `unavailable` entities.
-6. Dashboard entity binding is contract-driven rather than hard-coded to one installation.
+6. Dashboard entity binding is registry/contract-driven rather than hard-coded to one installation.
 7. Delivery is commit-based from `main`; GitHub Releases are not part of the update process.
+8. The native panel remains read-only even when its compatibility source exposes writable entities.
 
 ## License
 
