@@ -22,7 +22,12 @@
       "cannot_connect": "Не удалось выполнить запрос к StarLine API.",
       "invalid_auth": "Ошибка авторизации StarLine. Проверьте App ID, App Secret, логин и пароль.",
       "no_devices": "Авторизация прошла успешно, но StarLine не вернул ни одного доступного автомобиля.",
-      "two_factor_not_supported": "StarLine запросил дополнительное подтверждение входа. Этот сценарий пока не поддерживается."
+      "two_factor_not_supported": "StarLine запросил дополнительное подтверждение входа. Этот сценарий пока не поддерживается.",
+      "api_app_code": "StarLine API недоступен на этапе получения кода приложения (getCode).",
+      "api_app_token": "StarLine API недоступен на этапе получения токена приложения (getToken).",
+      "api_user_login": "StarLine API недоступен на этапе входа в учетную запись (user/login).",
+      "api_webapi_auth": "StarLine API недоступен на этапе создания WebAPI-сессии (auth.slid).",
+      "api_user_info": "StarLine API недоступен на этапе получения списка автомобилей (user_info)."
     },
     "abort": {
       "already_configured": "Эта учетная запись StarLine уже настроена."

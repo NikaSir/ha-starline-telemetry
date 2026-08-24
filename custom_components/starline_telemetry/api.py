@@ -29,6 +29,24 @@ class StarLineTwoFactorRequired(StarLineAuthenticationError):
     """StarLine account requires interactive two-factor confirmation."""
 
 
+class StarLineRequestError(StarLineApiError):
+    """A request failed at a known StarLine API stage."""
+
+    def __init__(
+        self,
+        stage: str,
+        detail: str,
+        *,
+        http_status: int | None = None,
+        api_code: int | None = None,
+    ) -> None:
+        super().__init__(detail)
+        self.stage = stage
+        self.detail = detail
+        self.http_status = http_status
+        self.api_code = api_code
+
+
 @dataclass(slots=True, frozen=True)
 class StarLineDevice:
     """A StarLine device discovered on the account."""
@@ -65,6 +83,7 @@ class StarLineApiClient:
         app_code_payload = await self._request_json(
             "GET",
             f"{STARLINE_ID_BASE_URL}/apiV3/application/getCode/",
+            stage="app_code",
             params={
                 "appId": self._app_id,
                 "secret": hashlib.md5(
@@ -77,6 +96,7 @@ class StarLineApiClient:
         app_token_payload = await self._request_json(
             "GET",
             f"{STARLINE_ID_BASE_URL}/apiV3/application/getToken/",
+            stage="app_token",
             params={
                 "appId": self._app_id,
                 "secret": hashlib.md5(
@@ -89,6 +109,7 @@ class StarLineApiClient:
         login_payload = await self._request_json(
             "POST",
             f"{STARLINE_ID_BASE_URL}/apiV3/user/login/",
+            stage="user_login",
             params={"token": app_token},
             data={"login": self._username, "pass": self._password_hash},
         )
@@ -117,13 +138,19 @@ class StarLineApiClient:
         auth_payload, slnet_token = await self._request_json_with_cookie(
             "POST",
             f"{STARLINE_API_BASE_URL}/json/v2/auth.slid",
+            stage="webapi_auth",
             json={"slid_token": user_token},
         )
         auth_user_id = auth_payload.get("user_id")
-        if auth_payload.get("code") != 200 or not slnet_token or auth_user_id is None:
-            raise StarLineAuthenticationError(
-                str(auth_payload.get("codestring", "WebAPI authentication failed"))
+        auth_code = self._int_value(auth_payload.get("code"))
+        if auth_code != 200:
+            raise StarLineRequestError(
+                "webapi_auth",
+                str(auth_payload.get("codestring", "WebAPI authentication failed")),
+                api_code=auth_code,
             )
+        if not slnet_token or auth_user_id is None:
+            raise StarLineAuthenticationError("WebAPI authentication returned no session")
 
         self._slnet_token = slnet_token
         self.user_id = int(auth_user_id)
@@ -133,7 +160,10 @@ class StarLineApiClient:
         if self.user_id is None:
             raise StarLineAuthenticationError("StarLine client is not authenticated")
 
-        payload = await self._api_get(f"/json/v2/user/{self.user_id}/user_info")
+        payload = await self._api_get(
+            f"/json/v2/user/{self.user_id}/user_info",
+            stage="user_info",
+        )
         devices_raw: list[Any] = []
         for key in ("devices", "shared_devices"):
             value = payload.get(key)
@@ -151,14 +181,21 @@ class StarLineApiClient:
 
     async def async_get_device_data(self, device_id: int) -> dict[str, Any]:
         """Return the full read-only telemetry snapshot for one device."""
-        payload = await self._api_get(f"/json/v3/device/{device_id}/data")
+        payload = await self._api_get(
+            f"/json/v3/device/{device_id}/data",
+            stage="device_data",
+        )
         data = payload.get("data")
         if not isinstance(data, dict):
             raise StarLineApiError(f"Device {device_id} returned no telemetry data")
         return data
 
     async def _api_get(
-        self, path: str, *, params: dict[str, str] | None = None
+        self,
+        path: str,
+        *,
+        stage: str,
+        params: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         if not self._slnet_token:
             raise StarLineAuthenticationError("StarLine WebAPI session is missing")
@@ -166,60 +203,127 @@ class StarLineApiClient:
         payload = await self._request_json(
             "GET",
             f"{STARLINE_API_BASE_URL}{path}",
+            stage=stage,
             headers={"Cookie": f"slnet={self._slnet_token}"},
             params=params,
         )
-        code = payload.get("code")
+        code = self._int_value(payload.get("code"))
         if code in (401, 403):
             self._slnet_token = None
             raise StarLineAuthenticationError(
                 str(payload.get("codestring", "StarLine session expired"))
             )
         if code != 200:
-            raise StarLineApiError(
-                str(payload.get("codestring", f"StarLine API error {code}"))
+            raise StarLineRequestError(
+                stage,
+                str(payload.get("codestring", f"StarLine API error {code}")),
+                api_code=code,
             )
         return payload
 
     async def _request_json(
-        self, method: str, url: str, **kwargs: Any
+        self,
+        method: str,
+        url: str,
+        *,
+        stage: str,
+        **kwargs: Any,
     ) -> dict[str, Any]:
         try:
             async with self._session.request(
                 method, url, timeout=_TIMEOUT, **kwargs
             ) as response:
-                response.raise_for_status()
-                payload = await response.json(content_type=None)
-        except (ClientError, TimeoutError, ValueError) as err:
-            raise StarLineApiError(f"StarLine request failed: {err}") from err
+                http_status = response.status
+                try:
+                    payload = await response.json(content_type=None)
+                except (ValueError, TypeError) as err:
+                    raise StarLineRequestError(
+                        stage,
+                        f"Invalid JSON response ({type(err).__name__})",
+                        http_status=http_status,
+                    ) from err
+                if http_status >= 400:
+                    detail = (
+                        str(payload.get("codestring") or payload.get("desc") or response.reason)
+                        if isinstance(payload, dict)
+                        else str(response.reason)
+                    )
+                    raise StarLineRequestError(
+                        stage,
+                        detail or "HTTP request failed",
+                        http_status=http_status,
+                    )
+        except StarLineRequestError:
+            raise
+        except (ClientError, TimeoutError) as err:
+            raise StarLineRequestError(
+                stage,
+                f"{type(err).__name__}: {err}",
+                http_status=getattr(err, "status", None),
+            ) from err
         if not isinstance(payload, dict):
-            raise StarLineApiError("StarLine returned an invalid JSON response")
+            raise StarLineRequestError(stage, "StarLine returned a non-object JSON response")
         return payload
 
     async def _request_json_with_cookie(
-        self, method: str, url: str, **kwargs: Any
+        self,
+        method: str,
+        url: str,
+        *,
+        stage: str,
+        **kwargs: Any,
     ) -> tuple[dict[str, Any], str | None]:
         try:
             async with self._session.request(
                 method, url, timeout=_TIMEOUT, **kwargs
             ) as response:
-                response.raise_for_status()
-                payload = await response.json(content_type=None)
+                http_status = response.status
+                try:
+                    payload = await response.json(content_type=None)
+                except (ValueError, TypeError) as err:
+                    raise StarLineRequestError(
+                        stage,
+                        f"Invalid JSON response ({type(err).__name__})",
+                        http_status=http_status,
+                    ) from err
+                if http_status >= 400:
+                    detail = (
+                        str(payload.get("codestring") or payload.get("desc") or response.reason)
+                        if isinstance(payload, dict)
+                        else str(response.reason)
+                    )
+                    raise StarLineRequestError(
+                        stage,
+                        detail or "HTTP request failed",
+                        http_status=http_status,
+                    )
                 cookie = response.cookies.get("slnet")
                 slnet_token = cookie.value if cookie else None
-        except (ClientError, TimeoutError, ValueError) as err:
-            raise StarLineApiError(f"StarLine request failed: {err}") from err
+        except StarLineRequestError:
+            raise
+        except (ClientError, TimeoutError) as err:
+            raise StarLineRequestError(
+                stage,
+                f"{type(err).__name__}: {err}",
+                http_status=getattr(err, "status", None),
+            ) from err
         if not isinstance(payload, dict):
-            raise StarLineApiError("StarLine returned an invalid JSON response")
+            raise StarLineRequestError(stage, "StarLine returned a non-object JSON response")
         return payload, slnet_token
 
     @staticmethod
-    def _state(payload: dict[str, Any]) -> int:
-        """Return StarLine ID response state as an integer."""
+    def _int_value(value: Any) -> int | None:
+        """Convert an API value to int when possible."""
         try:
-            return int(payload.get("state", -1))
+            return int(value)
         except (TypeError, ValueError):
-            return -1
+            return None
+
+    @classmethod
+    def _state(cls, payload: dict[str, Any]) -> int:
+        """Return StarLine ID response state as an integer."""
+        value = cls._int_value(payload.get("state"))
+        return value if value is not None else -1
 
     @classmethod
     def _slid_value(cls, payload: dict[str, Any], key: str) -> str:

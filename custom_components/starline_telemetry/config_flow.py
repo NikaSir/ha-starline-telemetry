@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from typing import Any
 
 import voluptuous as vol
@@ -16,6 +17,7 @@ from .api import (
     StarLineApiClient,
     StarLineApiError,
     StarLineAuthenticationError,
+    StarLineRequestError,
     StarLineTwoFactorRequired,
 )
 from .const import (
@@ -25,6 +27,8 @@ from .const import (
     CONF_USERNAME,
     DOMAIN,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class StarLineNoDevicesError(Exception):
@@ -39,7 +43,7 @@ async def _validate_input(hass: HomeAssistant, data: dict[str, Any]) -> str:
     client = StarLineApiClient(
         async_get_clientsession(hass),
         str(data[CONF_APP_ID]).strip(),
-        str(data[CONF_APP_SECRET]),
+        str(data[CONF_APP_SECRET]).strip(),
         str(data[CONF_USERNAME]).strip(),
         password_hash,
     )
@@ -70,7 +74,18 @@ class StarLineTelemetryConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "invalid_auth"
             except StarLineNoDevicesError:
                 errors["base"] = "no_devices"
-            except StarLineApiError:
+            except StarLineRequestError as err:
+                _LOGGER.warning(
+                    "StarLine setup request failed at stage %s "
+                    "(HTTP=%s, API=%s): %s",
+                    err.stage,
+                    err.http_status,
+                    err.api_code,
+                    err.detail,
+                )
+                errors["base"] = f"api_{err.stage}"
+            except StarLineApiError as err:
+                _LOGGER.warning("StarLine setup API error: %s", err)
                 errors["base"] = "cannot_connect"
             else:
                 username = str(user_input[CONF_USERNAME]).strip()
@@ -80,7 +95,7 @@ class StarLineTelemetryConfigFlow(ConfigFlow, domain=DOMAIN):
                     title=username,
                     data={
                         CONF_APP_ID: str(user_input[CONF_APP_ID]).strip(),
-                        CONF_APP_SECRET: str(user_input[CONF_APP_SECRET]),
+                        CONF_APP_SECRET: str(user_input[CONF_APP_SECRET]).strip(),
                         CONF_USERNAME: username,
                         CONF_PASSWORD_HASH: password_hash,
                     },
