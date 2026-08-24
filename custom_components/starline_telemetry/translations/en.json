@@ -22,7 +22,12 @@
       "cannot_connect": "Unable to complete the StarLine API request.",
       "invalid_auth": "StarLine authentication failed. Check App ID, App Secret, login and password.",
       "no_devices": "Authentication succeeded, but StarLine returned no accessible vehicles.",
-      "two_factor_not_supported": "StarLine requested additional sign-in confirmation. This flow is not supported yet."
+      "two_factor_not_supported": "StarLine requested additional sign-in confirmation. This flow is not supported yet.",
+      "api_app_code": "StarLine API failed while requesting the application code (getCode).",
+      "api_app_token": "StarLine API failed while requesting the application token (getToken).",
+      "api_user_login": "StarLine API failed while signing in to the account (user/login).",
+      "api_webapi_auth": "StarLine API failed while creating the WebAPI session (auth.slid).",
+      "api_user_info": "StarLine API failed while retrieving the vehicle list (user_info)."
     },
     "abort": {
       "already_configured": "This StarLine account is already configured."
