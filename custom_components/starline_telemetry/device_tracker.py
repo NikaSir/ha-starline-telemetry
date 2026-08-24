@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-from homeassistant.components.device_tracker.config_entry import TrackerEntity
-from homeassistant.components.device_tracker.const import SourceType
+from homeassistant.components.device_tracker import TrackerEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -31,7 +30,6 @@ class StarLineTelemetryTracker(StarLineTelemetryEntity, TrackerEntity):
     """GPS position reported by a StarLine device."""
 
     _attr_translation_key = "vehicle_location"
-    _attr_source_type = SourceType.GPS
 
     def __init__(self, coordinator, device_id: int) -> None:
         super().__init__(coordinator, device_id, "vehicle_location")
