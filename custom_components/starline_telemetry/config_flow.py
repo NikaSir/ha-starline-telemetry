@@ -27,21 +27,26 @@ from .const import (
 )
 
 
+class StarLineNoDevicesError(Exception):
+    """Authentication succeeded but the account returned no vehicles."""
+
+
 async def _validate_input(hass: HomeAssistant, data: dict[str, Any]) -> str:
+    """Validate StarLine credentials and confirm at least one vehicle exists."""
     password_hash = hashlib.sha1(
         str(data[CONF_PASSWORD]).encode(), usedforsecurity=False
     ).hexdigest()
     client = StarLineApiClient(
         async_get_clientsession(hass),
-        str(data[CONF_APP_ID]),
+        str(data[CONF_APP_ID]).strip(),
         str(data[CONF_APP_SECRET]),
-        str(data[CONF_USERNAME]),
+        str(data[CONF_USERNAME]).strip(),
         password_hash,
     )
     await client.async_authenticate()
     devices = await client.async_get_devices()
     if not devices:
-        raise StarLineApiError("No StarLine devices found")
+        raise StarLineNoDevicesError
     return password_hash
 
 
@@ -63,6 +68,8 @@ class StarLineTelemetryConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "two_factor_not_supported"
             except StarLineAuthenticationError:
                 errors["base"] = "invalid_auth"
+            except StarLineNoDevicesError:
+                errors["base"] = "no_devices"
             except StarLineApiError:
                 errors["base"] = "cannot_connect"
             else:
