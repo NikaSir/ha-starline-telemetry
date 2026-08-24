@@ -19,9 +19,10 @@
       }
     },
     "error": {
-      "cannot_connect": "Unable to connect to StarLine or no vehicle was returned.",
-      "invalid_auth": "StarLine authentication failed.",
-      "two_factor_not_supported": "Two-factor authentication is not supported by this baseline yet."
+      "cannot_connect": "Unable to complete the StarLine API request.",
+      "invalid_auth": "StarLine authentication failed. Check App ID, App Secret, login and password.",
+      "no_devices": "Authentication succeeded, but StarLine returned no accessible vehicles.",
+      "two_factor_not_supported": "StarLine requested additional sign-in confirmation. This flow is not supported yet."
     },
     "abort": {
       "already_configured": "This StarLine account is already configured."
