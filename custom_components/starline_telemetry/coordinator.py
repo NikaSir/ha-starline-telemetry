@@ -8,8 +8,9 @@ import logging
 import math
 from typing import Any
 
-from homeassistant.config_entries import ConfigEntryAuthFailed
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import StarLineApiClient, StarLineApiError, StarLineAuthenticationError
@@ -29,6 +30,7 @@ class StarLineTelemetryCoordinator(DataUpdateCoordinator[dict[int, dict[str, Any
     def __init__(
         self,
         hass: HomeAssistant,
+        config_entry: ConfigEntry,
         client: StarLineApiClient,
         device_ids: list[int],
     ) -> None:
@@ -43,6 +45,7 @@ class StarLineTelemetryCoordinator(DataUpdateCoordinator[dict[int, dict[str, Any
         super().__init__(
             hass,
             logger=_LOGGER,
+            config_entry=config_entry,
             name=DOMAIN,
             update_interval=update_interval,
         )
