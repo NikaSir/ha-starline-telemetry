@@ -1,0 +1,56 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Подключение StarLine Telemetry",
+        "description": "Read-only подключение к официальному StarLine Open API. Команды управления автомобилем не реализованы.",
+        "data": {
+          "app_id": "App ID",
+          "app_secret": "App Secret",
+          "username": "Логин StarLine",
+          "password": "Пароль StarLine"
+        },
+        "data_description": {
+          "app_id": "Идентификатор приложения из раздела разработчика StarLine.",
+          "app_secret": "Секрет приложения из раздела разработчика StarLine.",
+          "username": "Логин учетной записи StarLine, которой принадлежит автомобиль.",
+          "password": "Перед сохранением в Home Assistant пароль преобразуется в SHA-1."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Не удалось подключиться к StarLine или учетная запись не вернула автомобиль.",
+      "invalid_auth": "Ошибка авторизации StarLine.",
+      "two_factor_not_supported": "Двухфакторная авторизация в этой базовой версии пока не поддерживается."
+    },
+    "abort": {
+      "already_configured": "Эта учетная запись StarLine уже настроена."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery": {"name": "Аккумулятор"},
+      "cabin_temperature": {"name": "Температура салона"},
+      "engine_temperature": {"name": "Температура двигателя"},
+      "gps_satellites": {"name": "Спутники GPS"},
+      "gsm_level": {"name": "Уровень GSM"},
+      "fuel_percent": {"name": "Уровень топлива"},
+      "fuel_litres": {"name": "Объем топлива"},
+      "odometer": {"name": "Пробег"},
+      "last_activity": {"name": "Последняя активность"}
+    },
+    "binary_sensor": {
+      "armed": {"name": "Охрана"},
+      "alarm": {"name": "Тревога"},
+      "door": {"name": "Двери"},
+      "hood": {"name": "Капот"},
+      "trunk": {"name": "Багажник"},
+      "ignition": {"name": "Зажигание"},
+      "engine_running": {"name": "Двигатель работает"},
+      "service_mode": {"name": "Сервисный режим"}
+    },
+    "device_tracker": {
+      "vehicle_location": {"name": "Местоположение"}
+    }
+  }
+}
