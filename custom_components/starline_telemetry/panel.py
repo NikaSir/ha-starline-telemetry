@@ -29,8 +29,8 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 PANEL_STATIC_URL = f"/{DOMAIN}_static"
-PANEL_COMPONENT = "starline-app-panel-v003"
-PANEL_MODULE = f"{PANEL_STATIC_URL}/starline-app-v003.js?v={PANEL_VERSION}"
+PANEL_COMPONENT = "starline-app-panel-v004"
+PANEL_MODULE = f"{PANEL_STATIC_URL}/starline-app-v004.js?v={PANEL_VERSION}"
 
 _DATA_PANEL_REGISTERED = "native_panel_registered"
 _DATA_STATIC_REGISTERED = "native_panel_static_registered"
@@ -71,12 +71,14 @@ def _apply_device_metadata(
 
 
 def _discover_vehicle_entities(hass: HomeAssistant) -> list[dict[str, Any]]:
-    """Resolve core StarLine and future integration-owned entities by unique_id."""
+    """Resolve enabled core StarLine and integration-owned entities by unique_id."""
     registry = er.async_get(hass)
     vehicles: dict[str, dict[str, Any]] = {}
 
     for registry_entry in registry.entities.values():
         if registry_entry.platform != CORE_STARLINE_DOMAIN:
+            continue
+        if registry_entry.disabled_by is not None:
             continue
         match = _CORE_UNIQUE_ID.match(registry_entry.unique_id)
         if match is None:
@@ -90,6 +92,8 @@ def _discover_vehicle_entities(hass: HomeAssistant) -> list[dict[str, Any]]:
 
     for registry_entry in registry.entities.values():
         if registry_entry.platform != DOMAIN:
+            continue
+        if registry_entry.disabled_by is not None:
             continue
         match = _TELEMETRY_UNIQUE_ID.match(registry_entry.unique_id)
         if match is None:
