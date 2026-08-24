@@ -1,0 +1,44 @@
+contract: starline_telemetry_dashboard
+version: 0.1.0
+mode: read_only
+architecture: CONTRACT_GENERATED_UI
+layout: "Status -> Control -> Diagnostics"
+
+rules:
+  vehicle_write_commands: forbidden
+  unsupported_entities: omit
+  unavailable_is_normal: false
+  long_press: more-info
+
+semantic_entities:
+  status:
+    armed: binary_sensor.armed
+    alarm: binary_sensor.alarm
+    engine_running: binary_sensor.engine_running
+    ignition: binary_sensor.ignition
+    doors: binary_sensor.door
+    hood: binary_sensor.hood
+    trunk: binary_sensor.trunk
+    location: device_tracker.vehicle_location
+  resources:
+    battery: sensor.battery
+    fuel_percent: sensor.fuel_percent
+    fuel_litres: sensor.fuel_litres
+    odometer: sensor.odometer
+  climate:
+    cabin_temperature: sensor.cabin_temperature
+    engine_temperature: sensor.engine_temperature
+  diagnostics:
+    last_activity: sensor.last_activity
+    gps_satellites: sensor.gps_satellites
+    gsm_level: sensor.gsm_level
+    service_mode: binary_sensor.service_mode
+
+sections:
+  - id: status
+    purpose: current_vehicle_state
+  - id: control
+    purpose: read_only_context
+    commands: []
+  - id: diagnostics
+    purpose: source_health_and_telemetry_freshness
