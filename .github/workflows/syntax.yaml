@@ -15,4 +15,7 @@ jobs:
       - name: Compile Python
         run: python -m compileall -q custom_components/starline_telemetry
       - name: Check panel JavaScript
-        run: node --check custom_components/starline_telemetry/frontend/starline-app-v001.js
+        run: |
+          for file in custom_components/starline_telemetry/frontend/*.js; do
+            node --check "$file"
+          done
