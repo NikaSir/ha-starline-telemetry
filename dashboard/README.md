@@ -1,23 +1,31 @@
 # StarLine dashboard workspace
 
-The dashboard is generated from a semantic contract after the real Home Assistant entity IDs are known.
+The native StarLine panel is phone-first, read-only, and source-independent.
 
-## Fixed architecture
+## Current operating mode
 
-1. **Status** — security state, openings, engine/ignition, vehicle location and key resources.
-2. **Control** — intentionally read-only in this project. It may show contextual state but contains no vehicle command buttons.
-3. **Diagnostics** — source freshness, GPS/GSM visibility, service state and integration health.
+While the standalone `starline_telemetry` API connection is being debugged, the panel can run in **core bridge mode** and read data from the existing Home Assistant `starline` integration.
 
-## Binding rule
+The bridge resolves entities from the Home Assistant entity registry by stable StarLine `unique_id` values (`starline-{role}-{device_id}`), not by installation-specific `entity_id`. User-renamed entity IDs therefore remain supported.
 
-Do not hard-code installation-specific entity IDs into the contract. Bind generated entities by integration domain, device and semantic role, then generate the Lovelace YAML from the resolved inventory.
+When standalone telemetry becomes available, integration-owned roles (`{device_id}_{role}`) take precedence role-by-role. The panel layout does not change.
 
-## Next UI milestone
+## Fixed navigation
 
-After the integration is installed against the real StarLine account:
+1. **Обзор** — current vehicle summary, security, engine, resources.
+2. **Охрана** — arm/lock state, alarm, doors, hood, trunk, hand brake.
+3. **Двигатель** — engine state, autostart state, engine/cabin temperature, battery.
+4. **Авто** — location, mileage, fuel, GSM/GPS and balance when exposed.
+5. **Сервис** — OBD errors and diagnostic states exposed by the source.
 
-1. capture the actual entity/device registry snapshot;
-2. confirm which telemetry fields the specific StarLine device exposes;
-3. bind semantic roles;
-4. generate the first phone-first dashboard baseline;
-5. compare it with the current StarLine panel and migrate only confirmed useful blocks.
+## Safety boundary
+
+The panel is **read-only even when the core StarLine integration exposes writable entities** such as lock, switches, buttons or services. It reads their current states but never calls vehicle-control services.
+
+Unsupported or disabled entities are omitted instead of being manufactured as permanent `unavailable` cards.
+
+## Entry point
+
+Panel path: `/starline`
+
+Logical parent: `Дом → Автомобили` (`house.vehicles`).

@@ -1,4 +1,4 @@
-"""StarLine Telemetry integration."""
+"""StarLine Telemetry integration and read-only vehicle panel."""
 
 from __future__ import annotations
 
@@ -13,19 +13,25 @@ from .api import StarLineApiClient, StarLineApiError, StarLineAuthenticationErro
 from .const import (
     CONF_APP_ID,
     CONF_APP_SECRET,
+    CONF_MODE,
     CONF_PASSWORD_HASH,
     CONF_USERNAME,
+    CORE_STARLINE_DOMAIN,
+    MODE_CORE_BRIDGE,
+    MODE_TELEMETRY,
     PLATFORMS,
 )
 from .coordinator import StarLineTelemetryCoordinator
+from .panel import async_register_native_panel, async_unregister_native_panel
 
 
 @dataclass(slots=True)
 class StarLineRuntimeData:
     """Runtime data for a StarLine config entry."""
 
-    client: StarLineApiClient
-    coordinator: StarLineTelemetryCoordinator
+    mode: str
+    client: StarLineApiClient | None = None
+    coordinator: StarLineTelemetryCoordinator | None = None
 
 
 type StarLineTelemetryConfigEntry = ConfigEntry[StarLineRuntimeData]
@@ -34,7 +40,18 @@ type StarLineTelemetryConfigEntry = ConfigEntry[StarLineRuntimeData]
 async def async_setup_entry(
     hass: HomeAssistant, entry: StarLineTelemetryConfigEntry
 ) -> bool:
-    """Set up StarLine Telemetry from a config entry."""
+    """Set up StarLine Telemetry or panel bridge from a config entry."""
+    mode = str(entry.data.get(CONF_MODE, MODE_TELEMETRY))
+
+    if mode == MODE_CORE_BRIDGE:
+        if not hass.config_entries.async_entries(CORE_STARLINE_DOMAIN):
+            raise ConfigEntryNotReady(
+                "Home Assistant StarLine integration is not configured"
+            )
+        entry.runtime_data = StarLineRuntimeData(mode=MODE_CORE_BRIDGE)
+        await async_register_native_panel(hass, entry)
+        return True
+
     client = StarLineApiClient(
         async_get_clientsession(hass),
         str(entry.data[CONF_APP_ID]),
@@ -59,8 +76,11 @@ async def async_setup_entry(
     )
     await coordinator.async_config_entry_first_refresh()
 
-    entry.runtime_data = StarLineRuntimeData(client=client, coordinator=coordinator)
+    entry.runtime_data = StarLineRuntimeData(
+        mode=MODE_TELEMETRY, client=client, coordinator=coordinator
+    )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await async_register_native_panel(hass, entry)
     return True
 
 
@@ -68,4 +88,10 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: StarLineTelemetryConfigEntry
 ) -> bool:
     """Unload a StarLine Telemetry config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    mode = str(entry.data.get(CONF_MODE, MODE_TELEMETRY))
+    unload_ok = True
+    if mode != MODE_CORE_BRIDGE:
+        unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        async_unregister_native_panel(hass, entry)
+    return unload_ok

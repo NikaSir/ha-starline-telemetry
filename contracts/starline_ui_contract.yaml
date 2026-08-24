@@ -1,44 +1,71 @@
 contract: starline_telemetry_dashboard
-version: 0.1.0
+version: 0.2.0
 mode: read_only
 architecture: CONTRACT_GENERATED_UI
-layout: "Status -> Control -> Diagnostics"
+parent: house.vehicles
+panel_path: /starline
 
 rules:
   vehicle_write_commands: forbidden
   unsupported_entities: omit
   unavailable_is_normal: false
-  long_press: more-info
+  entity_binding: registry_unique_id
+  user_renamed_entity_ids: supported
+  more_info_on_tap: true
 
-semantic_entities:
-  status:
-    armed: binary_sensor.armed
-    alarm: binary_sensor.alarm
-    engine_running: binary_sensor.engine_running
-    ignition: binary_sensor.ignition
-    doors: binary_sensor.door
-    hood: binary_sensor.hood
-    trunk: binary_sensor.trunk
-    location: device_tracker.vehicle_location
-  resources:
-    battery: sensor.battery
-    fuel_percent: sensor.fuel_percent
-    fuel_litres: sensor.fuel_litres
-    odometer: sensor.odometer
-  climate:
-    cabin_temperature: sensor.cabin_temperature
-    engine_temperature: sensor.engine_temperature
-  diagnostics:
-    last_activity: sensor.last_activity
-    gps_satellites: sensor.gps_satellites
-    gsm_level: sensor.gsm_level
-    service_mode: binary_sensor.service_mode
+source_priority:
+  - starline_telemetry
+  - core_starline
 
-sections:
-  - id: status
-    purpose: current_vehicle_state
-  - id: control
-    purpose: read_only_context
+source_unique_id_patterns:
+  core_starline: "starline-{role}-{device_id}"
+  starline_telemetry: "{device_id}_{role}"
+
+role_aliases:
+  armed: [armed, lock]
+  engine_running: [engine_running, run]
+  cabin_temperature: [cabin_temperature, ctemp]
+  engine_temperature: [engine_temperature, etemp]
+  gsm_level: [gsm_level, gsm_lvl]
+  gps_satellites: [gps_satellites, gps_count]
+  fuel: [fuel, fuel_percent, fuel_litres]
+  odometer: [odometer, mileage]
+  location: [vehicle_location, location]
+
+core_starline_roles:
+  state: [lock, alarm, door, hood, trunk, hbrake, run, r_start]
+  resources: [battery, fuel, mileage, balance]
+  climate: [ctemp, etemp]
+  connectivity: [gsm_lvl, gps_count, location]
+  diagnostics: [errors, hfree, neutral, arm_moving_pb]
+
+telemetry_roles:
+  state: [armed, alarm, door, hood, trunk, ignition, engine_running, service_mode]
+  resources: [battery, fuel_percent, fuel_litres, odometer]
+  climate: [cabin_temperature, engine_temperature]
+  connectivity: [gsm_level, gps_satellites, vehicle_location]
+  diagnostics: [last_activity]
+
+tabs:
+  - id: overview
+    title: Обзор
+    purpose: current_vehicle_summary
+  - id: security
+    title: Охрана
+    purpose: security_state
     commands: []
-  - id: diagnostics
-    purpose: source_health_and_telemetry_freshness
+  - id: engine
+    title: Двигатель
+    purpose: engine_and_temperature_state
+    commands: []
+  - id: auto
+    title: Авто
+    purpose: location_resources_and_connectivity
+  - id: service
+    title: Сервис
+    purpose: diagnostics_and_source_health
+
+migration:
+  current: core_starline_bridge
+  target: starline_telemetry
+  requirement: panel_layout_must_not_change_when_source_changes
