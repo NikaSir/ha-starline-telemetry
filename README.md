@@ -1,6 +1,6 @@
 # StarLine Telemetry for Home Assistant
 
-Read-only StarLine telemetry integration and dashboard for Home Assistant — vehicle status, location, security, power and diagnostics.
+Read-only StarLine telemetry integration and dashboard for Home Assistant — vehicle status, location, security, history, trips and diagnostics.
 
 ## Project scope
 
@@ -14,6 +14,9 @@ Implemented scope:
 - Home Assistant sensors, binary sensors and GPS device tracker;
 - redacted diagnostics;
 - a native read-only StarLine panel with a compatibility bridge to the Home Assistant core `starline` integration;
+- local event history through Home Assistant Recorder;
+- local trip reconstruction through recorded `device_tracker` coordinates;
+- Home Assistant native map rendering for current position and movement history;
 - a semantic UI contract and dashboard workspace.
 
 Explicitly out of scope:
@@ -30,9 +33,11 @@ Authentication itself uses the POST endpoints required by StarLine ID/WebAPI. No
 
 The public StarLine Open API documents a limit of **1000 requests/day per user** for private users. The coordinator reserves quota headroom and calculates its poll interval from the number of discovered vehicles. The minimum poll interval is 180 seconds and the polling budget is capped at approximately 800 device-data requests/day across the account.
 
+History and trip views do not add StarLine cloud requests: they read the Home Assistant Recorder database through the supported History API and native Map card.
+
 ## Current baseline
 
-Internal integration version: `0.1.0`
+Internal integration version: `0.2.0`
 
 Platforms:
 
@@ -104,13 +109,31 @@ For the standalone telemetry source, StarLine requires an Open API application. 
 
 The password is SHA-1 hashed before it is stored in the Home Assistant config entry. The App Secret must remain available to renew StarLine application tokens and is stored as a secret configuration value.
 
-> Two-factor authentication is not supported in the `0.1.0` baseline. It is tracked as a follow-up item before this baseline is considered validated for regular use.
+> Two-factor authentication is not supported in the current baseline. It is tracked as a follow-up item before standalone telemetry is considered validated for regular use.
 
 ## Dashboard
 
 The native panel lives at `/starline` and uses the fixed phone-first navigation:
 
-**Обзор → Охрана → Двигатель → Авто → Сервис**
+**Состояние → История → Поездки → Диагностика**
+
+### Состояние
+
+The daily-use screen follows the information hierarchy of the native StarLine mobile application while keeping the NikaS Home Assistant visual language:
+
+- vehicle selector and online status in the header;
+- compact GPS, GSM, battery, fuel, cabin/engine temperature, mileage and parking telemetry;
+- vehicle mnemonic with security, engine and perimeter state;
+- latest significant StarLine state event;
+- current position rendered with Home Assistant's native Map card.
+
+### История
+
+The timeline is reconstructed from Home Assistant Recorder state transitions for the StarLine security/perimeter/engine entities over the last 24 hours.
+
+### Поездки
+
+The 72-hour movement view uses the recorded StarLine `device_tracker` history. Home Assistant's native Map card renders the historical path, while the panel groups GPS points into trips and estimates travelled distance using the haversine formula.
 
 The logical parent is **Дом → Автомобили** (`house.vehicles`).
 
@@ -136,6 +159,7 @@ See:
 6. Dashboard entity binding is registry/contract-driven rather than hard-coded to one installation.
 7. Delivery is commit-based from `main`; GitHub Releases are not part of the update process.
 8. The native panel remains read-only even when its compatibility source exposes writable entities.
+9. History and trip reconstruction use local Home Assistant Recorder data, not StarLine cloud history calls.
 
 ## License
 
