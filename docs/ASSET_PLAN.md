@@ -1,8 +1,8 @@
-# StarLine panel asset plan
+# StarLine panel assets
 
-The current local SVG scene assets are structural placeholders. The approved visual target uses photorealistic local raster assets while preserving the same layer contract.
+Version 0.4.2 replaces the structural SVG placeholders with production photorealistic local raster assets while preserving the same layered contract.
 
-Target files:
+Production files:
 
 - `frontend/assets/starline-bg-130-v2.webp` — daytime waterfront/city background, no car, text, values or UI.
 - `frontend/assets/starline-car-130-v2.webp` — transparent dark-blue Nissan Murano Z52 layer.
