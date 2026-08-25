@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: 0.3.3
+version: 0.4.0
 mode: read_only
 architecture: CONTRACT_GENERATED_UI
 parent: house.vehicles
@@ -15,6 +15,18 @@ rules:
   history_source: home_assistant_recorder
   trips_source: device_tracker_history
   external_starline_history_calls: forbidden
+
+assets:
+  local_only: true
+  base_path: custom_components/starline_telemetry/frontend/assets
+  manifest: custom_components/starline_telemetry/frontend/panel_manifest.json
+  backgrounds_have_live_data: false
+  car_layer_separate: true
+  files:
+    - starline-bg-130.svg
+    - starline-bg-683.svg
+    - starline-car-130.svg
+    - starline-car-683.svg
 
 zoom:
   required: true
@@ -53,38 +65,18 @@ role_aliases:
   location: [vehicle_location, location]
   parking: [hbrake]
 
-core_starline_roles:
-  state: [lock, alarm, door, hood, trunk, hbrake, run, r_start]
-  resources: [battery, fuel, mileage, balance]
-  climate: [ctemp, etemp]
-  connectivity: [gsm_lvl, gps_count, location]
-  diagnostics: [errors, hfree, neutral, arm_moving_pb]
-
-telemetry_roles:
-  state: [armed, alarm, door, hood, trunk, ignition, engine_running, service_mode]
-  resources: [battery, fuel_percent, fuel_litres, odometer]
-  climate: [cabin_temperature, engine_temperature]
-  connectivity: [gsm_level, gps_satellites, vehicle_location]
-  diagnostics: [last_activity]
-
-status_screen:
-  header:
-    title: StarLine
-    vehicle_selector_style: equal_buttons
-    refresh_button: true
-  telemetry_priority:
-    - battery
-    - fuel
-    - odometer
-    - cabin_temperature
-    - engine_temperature
-    - connectivity
-  perimeter: [hood, door, trunk]
-  operational_state: [armed, engine_running, parking]
-  show_last_event: true
-  map:
-    source: home_assistant_map_card
-    current_location_only: true
+summary_screen:
+  title: Сводка
+  purpose: simultaneous_state_of_all_vehicles
+  vehicle_cards: all
+  model_label: Nissan MURANO Z52
+  per_vehicle:
+    hero_layers: [background, vehicle_image, live_metrics, security_badge, connectivity]
+    live_metrics: [battery, fuel, engine_temperature, cabin_temperature]
+    perimeter: [hood, door, trunk]
+    operational_state: [engine_running, parking]
+    last_event: true
+  map: false
 
 history:
   window_hours: 24
@@ -101,8 +93,8 @@ trips:
 
 tabs:
   - id: status
-    title: Состояние
-    purpose: current_vehicle_summary_location_and_last_event
+    title: Сводка
+    purpose: simultaneous_vehicle_summary
   - id: history
     title: История
     purpose: vehicle_state_event_timeline
