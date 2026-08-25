@@ -29,8 +29,8 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 PANEL_STATIC_URL = f"/{DOMAIN}_static"
-PANEL_COMPONENT = "starline-app-panel-v010"
-PANEL_MODULE = f"{PANEL_STATIC_URL}/starline-app-v010.js?v={PANEL_VERSION}"
+PANEL_COMPONENT = "starline-app-panel-v011"
+PANEL_MODULE = f"{PANEL_STATIC_URL}/starline-app-v011.js?v={PANEL_VERSION}"
 
 _DATA_PANEL_REGISTERED = "native_panel_registered"
 _DATA_STATIC_REGISTERED = "native_panel_static_registered"
@@ -56,9 +56,7 @@ def _vehicle_bucket(vehicles: dict[str, dict[str, Any]], device_id: str) -> dict
     )
 
 
-def _apply_device_metadata(
-    hass: HomeAssistant, bucket: dict[str, Any], registry_device_id: str | None
-) -> None:
+def _apply_device_metadata(hass: HomeAssistant, bucket: dict[str, Any], registry_device_id: str | None) -> None:
     if not registry_device_id:
         return
     bucket["device_registry_id"] = registry_device_id
@@ -76,9 +74,7 @@ def _discover_vehicle_entities(hass: HomeAssistant) -> list[dict[str, Any]]:
     vehicles: dict[str, dict[str, Any]] = {}
 
     for registry_entry in registry.entities.values():
-        if registry_entry.platform != CORE_STARLINE_DOMAIN:
-            continue
-        if registry_entry.disabled_by is not None:
+        if registry_entry.platform != CORE_STARLINE_DOMAIN or registry_entry.disabled_by is not None:
             continue
         match = _CORE_UNIQUE_ID.match(registry_entry.unique_id)
         if match is None:
@@ -91,9 +87,7 @@ def _discover_vehicle_entities(hass: HomeAssistant) -> list[dict[str, Any]]:
         _apply_device_metadata(hass, bucket, registry_entry.device_id)
 
     for registry_entry in registry.entities.values():
-        if registry_entry.platform != DOMAIN:
-            continue
-        if registry_entry.disabled_by is not None:
+        if registry_entry.platform != DOMAIN or registry_entry.disabled_by is not None:
             continue
         match = _TELEMETRY_UNIQUE_ID.match(registry_entry.unique_id)
         if match is None:
@@ -124,10 +118,7 @@ def _bootstrap_payload(hass: HomeAssistant, entry: ConfigEntry | None) -> dict[s
             "read_only": True,
         },
         "source": {
-            "primary": "starline_telemetry" if any(
-                "starline_telemetry" in vehicle["sources"].values()
-                for vehicle in vehicles
-            ) else "core_starline",
+            "primary": "starline_telemetry" if any("starline_telemetry" in vehicle["sources"].values() for vehicle in vehicles) else "core_starline",
             "core_entries": len(core_entries),
             "telemetry_entries": len(telemetry_entries),
             "bridge_entry_id": entry.entry_id if entry is not None else None,
@@ -136,49 +127,28 @@ def _bootstrap_payload(hass: HomeAssistant, entry: ConfigEntry | None) -> dict[s
     }
 
 
-@websocket_api.websocket_command(
-    {
-        vol.Required("type"): f"{DOMAIN}/panel/bootstrap",
-        vol.Optional("entry_id"): str,
-    }
-)
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/panel/bootstrap", vol.Optional("entry_id"): str})
 @callback
-def websocket_panel_bootstrap(
-    hass: HomeAssistant,
-    connection: websocket_api.ActiveConnection,
-    msg: dict[str, Any],
-) -> None:
-    """Return current StarLine entity mapping for the native panel."""
+def websocket_panel_bootstrap(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     entry_id = msg.get("entry_id")
     entry = hass.config_entries.async_get_entry(entry_id) if entry_id else None
     connection.send_result(msg["id"], _bootstrap_payload(hass, entry))
 
 
 async def async_register_native_panel(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Register the native read-only StarLine panel."""
     domain_data = hass.data.setdefault(DOMAIN, {})
-
     if not domain_data.get(_DATA_WS_REGISTERED):
         websocket_api.async_register_command(hass, websocket_panel_bootstrap)
         domain_data[_DATA_WS_REGISTERED] = True
-
     if not domain_data.get(_DATA_STATIC_REGISTERED):
         frontend_dir = Path(__file__).parent / "frontend"
-        await hass.http.async_register_static_paths(
-            [StaticPathConfig(PANEL_STATIC_URL, str(frontend_dir), cache_headers=False)]
-        )
+        await hass.http.async_register_static_paths([StaticPathConfig(PANEL_STATIC_URL, str(frontend_dir), cache_headers=False)])
         domain_data[_DATA_STATIC_REGISTERED] = True
-
     if domain_data.get(_DATA_PANEL_REGISTERED):
         return
-
     if frontend.async_panel_exists(hass, PANEL_URL_PATH):
-        _LOGGER.error(
-            "Cannot register StarLine panel: /%s is already used by another panel",
-            PANEL_URL_PATH,
-        )
+        _LOGGER.error("Cannot register StarLine panel: /%s is already used by another panel", PANEL_URL_PATH)
         return
-
     try:
         await panel_custom.async_register_panel(
             hass=hass,
@@ -201,19 +171,15 @@ async def async_register_native_panel(hass: HomeAssistant, entry: ConfigEntry) -
     except ValueError as err:
         _LOGGER.error("Unable to register StarLine native panel: %s", err)
         return
-
     domain_data[_DATA_PANEL_ENTRY_ID] = entry.entry_id
     domain_data[_DATA_PANEL_REGISTERED] = True
 
 
 @callback
 def async_unregister_native_panel(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Remove the panel when its owning config entry is unloaded."""
     domain_data = hass.data.get(DOMAIN, {})
     if domain_data.get(_DATA_PANEL_ENTRY_ID) != entry.entry_id:
         return
-    if domain_data.get(_DATA_PANEL_REGISTERED) and frontend.async_panel_exists(
-        hass, PANEL_URL_PATH
-    ):
+    if domain_data.get(_DATA_PANEL_REGISTERED) and frontend.async_panel_exists(hass, PANEL_URL_PATH):
         frontend.async_remove_panel(hass, PANEL_URL_PATH)
     domain_data[_DATA_PANEL_REGISTERED] = False
