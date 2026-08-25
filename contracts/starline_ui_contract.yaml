@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: 0.3.0
+version: 0.3.3
 mode: read_only
 architecture: CONTRACT_GENERATED_UI
 parent: house.vehicles
@@ -16,6 +16,22 @@ rules:
   trips_source: device_tracker_history
   external_starline_history_calls: forbidden
 
+zoom:
+  required: true
+  target: workspace_only
+  home_assistant_header_scaled: false
+  bottom_navigation_scaled: false
+  pinch_to_zoom: true
+  pinch_origin: midpoint_between_touches
+  screen_controls: [decrease, current_percent, increase]
+  percent_tap_resets_to: 100
+  min_percent: 80
+  max_percent: 200
+  step_percent: 10
+  allow_pan_and_scroll_when_zoomed: true
+  persistence: local_device_storage
+  responsive_layout_preserved: true
+
 source_priority:
   - starline_telemetry
   - core_starline
@@ -25,7 +41,7 @@ source_unique_id_patterns:
   starline_telemetry: "{device_id}_{role}"
 
 role_aliases:
-  armed: [armed, lock]
+  armed: [armed, lock, security]
   engine_running: [engine_running, run]
   ignition: [ignition, run]
   cabin_temperature: [cabin_temperature, ctemp]
@@ -53,23 +69,19 @@ telemetry_roles:
 
 status_screen:
   header:
-    vehicle_selector: true
-    online_state: true
-    diagnostics_button: true
+    title: StarLine
+    vehicle_selector_style: equal_buttons
+    refresh_button: true
   telemetry_priority:
-    - gps_satellites
-    - gsm_level
     - battery
     - fuel
+    - odometer
     - cabin_temperature
     - engine_temperature
-    - odometer
-    - parking
-  vehicle_mnemonic:
-    show_security: true
-    show_engine: true
-    show_perimeter: true
-    show_last_event: true
+    - connectivity
+  perimeter: [hood, door, trunk]
+  operational_state: [armed, engine_running, parking]
+  show_last_event: true
   map:
     source: home_assistant_map_card
     current_location_only: true
