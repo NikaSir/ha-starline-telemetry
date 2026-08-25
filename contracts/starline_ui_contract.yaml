@@ -1,7 +1,8 @@
 contract: starline_telemetry_dashboard
-version: 0.4.0
+version: 0.4.1
 mode: read_only
-architecture: CONTRACT_GENERATED_UI
+repository_owner: NikaSir/ha-starline-telemetry
+repository_policy: self_contained
 parent: house.vehicles
 panel_path: /starline
 
@@ -15,6 +16,7 @@ rules:
   history_source: home_assistant_recorder
   trips_source: device_tracker_history
   external_starline_history_calls: forbidden
+  external_ui_repository_dependency: forbidden
 
 assets:
   local_only: true
@@ -68,13 +70,15 @@ role_aliases:
 summary_screen:
   title: Сводка
   purpose: simultaneous_state_of_all_vehicles
+  vehicle_order: [130-й, 683-й]
   vehicle_cards: all
   model_label: Nissan MURANO Z52
+  iphone_target: true
   per_vehicle:
     hero_layers: [background, vehicle_image, live_metrics, security_badge, connectivity]
-    live_metrics: [battery, fuel, engine_temperature, cabin_temperature]
-    perimeter: [hood, door, trunk]
-    operational_state: [engine_running, parking]
+    live_metrics_row: [battery, fuel, engine_temperature, cabin_temperature]
+    perimeter_row: [hood, door, trunk]
+    operational_row: [engine_running, parking]
     last_event: true
   map: false
 
