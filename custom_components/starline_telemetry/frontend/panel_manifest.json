@@ -1,0 +1,10 @@
+{
+  "panel": "starline",
+  "version": "0.4.0",
+  "assets": [
+    "assets/starline-bg-130.svg",
+    "assets/starline-bg-683.svg",
+    "assets/starline-car-130.svg",
+    "assets/starline-car-683.svg"
+  ]
+}
