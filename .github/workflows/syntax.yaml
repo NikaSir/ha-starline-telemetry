@@ -19,3 +19,15 @@ jobs:
           for file in custom_components/starline_telemetry/frontend/*.js; do
             node --check "$file"
           done
+      - name: Check panel assets
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('custom_components/starline_telemetry/frontend')
+          manifest = json.loads((root / 'panel_manifest.json').read_text())
+          missing = [asset for asset in manifest['assets'] if not (root / asset).is_file()]
+          if missing:
+              raise SystemExit('Missing panel assets: ' + ', '.join(missing))
+          print(f"Validated {len(manifest['assets'])} panel assets")
+          PY
