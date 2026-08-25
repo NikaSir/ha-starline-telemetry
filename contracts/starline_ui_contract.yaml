@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: 0.4.1
+version: 0.4.2
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
 repository_policy: self_contained
@@ -25,10 +25,10 @@ assets:
   backgrounds_have_live_data: false
   car_layer_separate: true
   files:
-    - starline-bg-130.svg
-    - starline-bg-683.svg
-    - starline-car-130.svg
-    - starline-car-683.svg
+    - starline-bg-130-v2.webp
+    - starline-bg-683-v2.webp
+    - starline-car-130-v2.webp
+    - starline-car-683-v2.webp
 
 zoom:
   required: true
