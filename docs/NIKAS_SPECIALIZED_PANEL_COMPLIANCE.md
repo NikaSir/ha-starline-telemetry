@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.5.2. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.5.3. Static bundle checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -43,3 +43,11 @@ Audit target: UI/integration 0.5.2. Static bundle checks pass; final iPhone fiel
 - The operational row is visually ordered as engine, latest event and handbrake. The event receives the width released from the handbrake column.
 - Plaque heights and the v0.5.1 typography floors are unchanged; responsive rules do not reduce corresponding text below the official StarLine reference.
 - Event sources, timestamps, labels and all other history/statistics behavior remain unchanged in this visual-only pass.
+
+## v0.5.3 scene and security visual delta
+
+- The connection chip is moved to the free left side of each photo scene and no longer covers the vehicle layer.
+- Remaining Summary viewport height is measured at runtime and divided evenly between the two photo scenes; state rows, metric plaques and typography remain unchanged.
+- Armed state reads `Охрана / Включена` on a blue-tinted shield plaque. Disarmed remains neutral and alarm remains red.
+- The fit is recalculated when the content viewport changes and does not alter the transform-owned scaling model.
+- History sources, event timestamps, action labels and statistics remain unchanged.

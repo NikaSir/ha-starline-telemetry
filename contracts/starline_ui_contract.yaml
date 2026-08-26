@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: 0.5.2
+version: 0.5.3
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
 repository_policy: self_contained
@@ -104,6 +104,12 @@ summary_screen:
     operational_row: [engine_running, last_event, parking]
     last_event: compact_in_operational_row
     last_event_width: expanded_from_parking_column
+    connection_position: left_free_scene
+    scene_height: fill_available_summary_viewport
+    security:
+      armed: {label: Включена, tone: blue}
+      disarmed: {label: Снята, tone: neutral}
+      alarm: {label: Тревога, tone: red}
     typography: maximum_without_badge_resize
   map: false
 

@@ -7,10 +7,11 @@ const manifest = JSON.parse(fs.readFileSync("custom_components/starline_telemetr
 const bundle = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app.js", "utf8");
 const source = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v016.js", "utf8");
 const visualSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v017.js", "utf8");
+const sceneSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v018.js", "utf8");
 
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
-assert.equal(manifest.version, "0.5.2");
+assert.equal(manifest.version, "0.5.3");
 assert.equal(manifest.zoom.native_vertical_scroll_at_or_below_percent, 100);
 assert.equal(manifest.zoom.one_finger_pan, "above_100_percent_on_overflowing_axes_only");
 assert.deepEqual(manifest.typography.floors_px, {
@@ -28,6 +29,13 @@ assert.deepEqual(manifest.summary.operational_order, [
 ]);
 assert.equal(manifest.summary.vehicle_switcher, "hidden");
 assert.equal(manifest.summary.last_event_width, "expanded_from_parking_column");
+assert.equal(manifest.summary.connection_position, "left_free_scene");
+assert.equal(manifest.summary.scene_height, "fills_available_summary_viewport");
+assert.deepEqual(manifest.summary.security_states, {
+  armed: "Охрана / Включена",
+  disarmed: "Охрана / Снята",
+  alarm: "Охрана / Тревога",
+});
 assert.match(panel, /starline-app\.js\?v=/);
 assert.doesNotMatch(bundle, /^import\s+/m, "production bundle must have no runtime imports");
 assert.match(bundle, /customElements\.define\("starline-app-panel"/);
@@ -68,6 +76,17 @@ assert.match(visualSource, /\.operational-row > \.event-state \{[\s\S]*order:2;[
 assert.match(visualSource, /\.operational-row > \.summary-state:nth-child\(2\) \{[\s\S]*order:3;[\s\S]*border-right:0/);
 assert.doesNotMatch(visualSource, /font-size:/, "visual layout pass must preserve typography floors");
 assert.match(bundle, /starline-app-panel-v017/);
+
+assert.match(sceneSource, /const text = locked === null \? "Нет данных" : locked \? "Включена" : "Снята"/);
+assert.match(sceneSource, /class="summary-security \$\{tone\}"/);
+assert.match(sceneSource, /\.summary-connection \{[\s\S]*left:8px !important;[\s\S]*right:auto !important/);
+assert.match(sceneSource, /_summarySceneGrowth\(viewportHeight, canvasHeight, sceneCount\)/);
+assert.match(sceneSource, /\.dual-summary > \.target-card > \.target-hero/);
+assert.match(sceneSource, /new ResizeObserver\(\(\) => this\._fitSummaryScenes\(\)\)/);
+assert.match(sceneSource, /\.summary-security\.armed[\s\S]*#e7f5ff/);
+assert.doesNotMatch(sceneSource, /font-size:/, "scene pass must preserve typography floors");
+assert.doesNotMatch(sceneSource, /_eventsFromHistory|_starLineEvents|panel\/history/, "scene pass must not change history or statistics");
+assert.match(bundle, /starline-app-panel-v018/);
 
 process.env.TZ = "Europe/Moscow";
 const registry = new Map();
@@ -114,6 +133,23 @@ vm.runInThisContext(bundle, { filename: "starline-app.js" });
 const Panel = customElements.get("starline-app-panel");
 assert.ok(Panel, "stable production component must be registered");
 const instance = new Panel();
+
+assert.equal(instance._summarySceneGrowth(720, 660, 2), 30);
+assert.equal(instance._summarySceneGrowth(620, 660, 2), 0);
+assert.equal(instance._summarySceneGrowth(720, 660, 0), 0);
+
+const originalEntity = instance._entity;
+const originalIsLocked = instance._isLocked;
+instance._entity = (_vehicle, keys) => (keys.includes("armed") ? { state: { state: "on" } } : null);
+instance._isLocked = () => true;
+assert.match(instance._summarySecurity({}), /summary-security ok armed/);
+assert.match(instance._summarySecurity({}), /mdi:shield-lock/);
+assert.match(instance._summarySecurity({}), /<strong>Включена<\/strong>/);
+instance._isLocked = () => false;
+assert.match(instance._summarySecurity({}), /summary-security warn disarmed/);
+assert.match(instance._summarySecurity({}), /<strong>Снята<\/strong>/);
+instance._entity = originalEntity;
+instance._isLocked = originalIsLocked;
 
 let fixedSwitcherQueries = 0;
 instance.shadowRoot = {
