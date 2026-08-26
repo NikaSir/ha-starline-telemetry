@@ -19,8 +19,8 @@ from .const import CORE_STARLINE_DOMAIN, DOMAIN, PANEL_ICON, PANEL_PARENT_ROUTE,
 
 _LOGGER = logging.getLogger(__name__)
 PANEL_STATIC_URL = f"/{DOMAIN}_static"
-PANEL_COMPONENT = "starline-app-panel-v013"
-PANEL_MODULE = f"{PANEL_STATIC_URL}/starline-app-v013.js?v={PANEL_VERSION}"
+PANEL_COMPONENT = "starline-app-panel-v014"
+PANEL_MODULE = f"{PANEL_STATIC_URL}/starline-app-v014.js?v={PANEL_VERSION}"
 _DATA_PANEL_REGISTERED = "native_panel_registered"
 _DATA_STATIC_REGISTERED = "native_panel_static_registered"
 _DATA_WS_REGISTERED = "native_panel_ws_registered"

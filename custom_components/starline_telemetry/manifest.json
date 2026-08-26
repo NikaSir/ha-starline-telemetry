@@ -1,7 +1,9 @@
 {
   "domain": "starline_telemetry",
   "name": "StarLine Telemetry",
-  "codeowners": ["@NikaSir"],
+  "codeowners": [
+    "@NikaSir"
+  ],
   "config_flow": true,
   "dependencies": [
     "frontend",
@@ -14,5 +16,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/NikaSir/ha-starline-telemetry/issues",
   "requirements": [],
-  "version": "0.4.2"
+  "version": "0.4.3"
 }

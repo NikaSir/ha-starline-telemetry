@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: 0.4.2
+version: 0.4.3
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
 repository_policy: self_contained
@@ -32,18 +32,30 @@ assets:
 
 zoom:
   required: true
+  viewport_count: 1
   target: workspace_only
+  engine: translate3d_scale
+  state: [scale, x, y]
+  css_zoom: forbidden
+  native_scroll_as_canvas_state: forbidden
   home_assistant_header_scaled: false
   bottom_navigation_scaled: false
+  one_finger_pan_at_all_scales: true
   pinch_to_zoom: true
   pinch_origin: midpoint_between_touches
-  screen_controls: [decrease, current_percent, increase]
-  percent_tap_resets_to: 100
-  min_percent: 80
+  screen_controls: forbidden
+  reset_gesture: two_finger_double_tap
+  reset_state: {scale: 1, x: 0, y: 0}
+  snap_percent_range: [97, 103]
+  reset_feedback: Масштаб 100%
+  min_percent: 75
   max_percent: 200
-  step_percent: 10
-  allow_pan_and_scroll_when_zoomed: true
-  persistence: local_device_storage
+  allow_pan_when_zoomed: true
+  clamp_to_scaled_content_bounds: true
+  persistence: local_panel_client_and_vehicle
+  restore_before_visible_frame: true
+  gesture_click_guard: true
+  stationary_long_press_preserved: true
   responsive_layout_preserved: true
 
 source_priority:

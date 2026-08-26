@@ -1,99 +1,57 @@
-# NikaS Specialized Panel UI Standard v1.3
+# NikaS Specialized Panel UI Standard v1.4
 
 **Status:** REQUIRED  
 **Canonical source:** `NikaSir/ha-contract-generated-ui`  
-**Canonical standards:** Shell v1.3 · Zoom v1.3 · Integration UI v1.4 · Frontend Delivery v1.1  
-**Reference field implementation:** Stark SolarPower UI 0.5.6
+**Canonical standards:** Shell v1.4 · Zoom v1.4 · Integration UI v1.5 · Frontend Delivery v1.2  
+**Reference field implementation:** Stark SolarPower 1.8.10
 
-## Ownership
-
-This repository owns domain/integration UI, entities, telemetry, commands, cards and diagnostics. Shared NikaS standards own application-shell behavior and release invariants.
-
-**Migration rule:** do not refactor domain UI during shell-only migration.
-
-## Header and safe area
+## Shell
 
 - Effective safe area is consumed exactly once.
-- Header stays below Dynamic Island/notch; Bottom Tab Bar stays above Home Indicator.
-- No device-specific safe-area constants.
-- Permanent left Header control is **Home Assistant main-system menu `☰` only**.
-- The control dispatches `hass-toggle-menu` with bubbling/composed semantics.
-- Permanent Back, parent-route arrow, integration drawer or device action in the left rail are prohibited.
-- If parent navigation is required, place it inside the work area.
-- Title is geometrically centered; at most one global action occupies the right rail.
-- Header/menu/right action remain native scale; touch targets are approximately 44×44 pt or larger.
+- Permanent left Header control is Home Assistant `☰` only and dispatches `hass-toggle-menu`.
+- Back, parent arrow, integration drawer and device action are prohibited in that rail; parent navigation belongs inside work content.
+- Header, optional peer-device selector and fixed full-width Bottom Tab Bar remain native scale.
+- Exactly one fixed work-canvas viewport exists.
 
-## Peer Device Selector
+## Transform-owned canvas
 
-When multiple peer physical devices exist, selector is persistent directly below Header and remains native scale.
+- Only work content transforms through `translate3d(x,y,0) scale(s)`.
+- Durable state is `{scale,x,y}`, never `scrollLeft` / `scrollTop`.
+- CSS `zoom`, page zoom and native overflow scrolling are not canvas position engines.
+- One finger pans at any scale, including vertical movement at 100%.
+- Two fingers pinch around their midpoint.
+- Coordinates are clamped to real scaled-content bounds.
+- Final transform remains after release.
+- State persists locally per panel/client and peer device where applicable.
+- Telemetry rerender restores transform on new DOM before the visible frame.
+- Installation is idempotent: no nested wrappers, duplicate handlers, blank areas or progressive shrink.
 
-- fixed peer order;
-- selected peer never reorders;
-- selected peer survives Bottom Tab changes;
-- compact non-selected health indication is allowed;
-- primary detailed content belongs only to selected peer;
-- subordinate zones/channels/components are not automatically peer devices.
+## Interaction guard
 
-## Bottom Tab Bar
+- A second finger immediately blocks pending `more-info`.
+- Pan threshold cancels pending hold through `pointercancel` semantics.
+- Synthetic clicks after gestures are briefly suppressed.
+- Pinch/pan/reset never execute device actions.
+- Stationary intentional long press still opens native `more-info`.
 
-- 3–5 primary sections use one fixed full-width edge-attached Bottom Tab Bar;
-- not a floating card/pill;
-- safe-area-aware;
-- icon + short readable label;
-- final content scrolls fully above it;
-- remains native scale.
+## Reset
 
-## Zoom — gesture-only standard
+- No permanent `− / % / +` controls.
+- Two-finger double tap resets `{scale:1,x:0,y:0}`.
+- Pinch ending at 97–103% snaps to exact 100%/origin.
+- Reset/snap briefly shows native-scale `Масштаб 100%`.
 
-Only working content scales. Header, Device Selector and Bottom Tab Bar do not.
+## Semantics and delivery
 
-Required:
+- Normal measurements are neutral; semantic colors express confirmed state.
+- `unknown`, `unavailable`, stale or untrusted source never appears healthy.
+- Backend semantic thresholds remain authoritative; unsupported values are not invented.
+- Critical artwork is local, cache-busted and separate from live state layers.
+- Production frontend is one deterministic self-contained entry with manifest/registration parity.
 
-- exactly **one** zoomable work viewport per panel instance;
-- two-finger focal-point pinch;
-- pan/scroll when enlarged;
-- range **75–200%**, default **100%**;
-- **no permanent `− / % / +` controls**;
-- two-finger double tap resets scale and scroll to 100%/origin;
-- pinch ending at **97–103%** snaps to exactly 100%;
-- reset/snap briefly shows **`Масштаб 100%`**;
-- selected scale persists locally per panel/client and per peer device where applicable;
-- responsive layout is selected before zoom.
+## Acceptance
 
-Shell reconciliation is idempotent across Home Assistant updates: no nested wrappers, duplicate gesture handlers/reset messages, blank abandoned areas or progressive content shrinking.
-
-## State and visual semantics
-
-- normal factual measurements use neutral typography;
-- green/amber/red are reserved for confirmed semantic state;
-- `unknown`, `unavailable`, stale or untrusted source never appear healthy;
-- frontend consumes validated backend semantic states/threshold results instead of duplicating backend business logic;
-- do not invent unsupported values;
-- native HA more-info/history is preferred for factual detail when useful.
-
-## Local visual assets
-
-- critical artwork ships locally with integration;
-- no CDN dependency;
-- no Base64 image payload when normal asset is suitable;
-- background/context art contains no live measurements/statuses;
-- device art, SVG paths, labels, values and status overlays remain separate runtime layers;
-- changed assets use release/build cache busting.
-
-## Frontend delivery
-
-- one stable production frontend entry module;
-- historical/versioned source modules are build-time history, not runtime import chain;
-- deterministic bundle rebuild when applicable;
-- production URL cache-busted by UI/build version;
-- panel registration and machine-readable manifest agree on route, UI version, entry module, assets, HA menu event and zoom/reset policy;
-- declared assets exist in shipped package;
-- JavaScript plus HACS/Hassfest/repository checks pass where applicable.
-
-## Field acceptance
-
-Primary acceptance is Home Assistant Companion App on iPhone Pro Max portrait.
-
-Verify: safe area not missing/doubled; `☰` opens native HA menu; Header geometry; selector fit; first useful state; Bottom Tab clearance; pinch/pan; two-finger reset; 97–103% snap; `Масштаб 100%` confirmation; no shell duplication after repeated HA state updates; peer context/scale persistence; explicit unreliable states; more-info/global-action behavior.
+Field-check iPhone Companion App: safe area, `hass-toggle-menu`, native Header/selector/Bottom Tab, one canvas, persistent one-finger movement at 100%, focal-point pinch, real bounds, reset/snap/feedback, pre-paint restoration, accidental-detail suppression, stationary long press, explicit unreliable states and no shell duplication after repeated HA updates.
 
 > Canonical policy remains in `ha-contract-generated-ui`; newer canonical standards override this synchronized snapshot.
+
