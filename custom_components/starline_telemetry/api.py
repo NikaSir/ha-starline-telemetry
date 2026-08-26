@@ -47,6 +47,134 @@ class StarLineRequestError(StarLineApiError):
         self.api_code = api_code
 
 
+async def _async_request_json(
+    session: ClientSession,
+    method: str,
+    url: str,
+    *,
+    stage: str,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Make one StarLine request and return a decoded JSON object."""
+    try:
+        async with session.request(method, url, timeout=_TIMEOUT, **kwargs) as response:
+            http_status = response.status
+            try:
+                payload = await response.json(content_type=None)
+            except (ValueError, TypeError) as err:
+                raise StarLineRequestError(
+                    stage,
+                    f"Invalid JSON response ({type(err).__name__})",
+                    http_status=http_status,
+                ) from err
+            if http_status >= 400:
+                detail = (
+                    str(payload.get("codestring") or payload.get("desc") or response.reason)
+                    if isinstance(payload, dict)
+                    else str(response.reason)
+                )
+                raise StarLineRequestError(
+                    stage,
+                    detail or "HTTP request failed",
+                    http_status=http_status,
+                )
+    except StarLineRequestError:
+        raise
+    except (ClientError, TimeoutError) as err:
+        raise StarLineRequestError(
+            stage,
+            f"{type(err).__name__}: {err}",
+            http_status=getattr(err, "status", None),
+        ) from err
+    if not isinstance(payload, dict):
+        raise StarLineRequestError(stage, "StarLine returned a non-object JSON response")
+    return payload
+
+
+def _api_code(payload: dict[str, Any]) -> int | None:
+    """Return a StarLine response code as an integer when possible."""
+    try:
+        return int(payload.get("code"))
+    except (TypeError, ValueError):
+        return None
+
+
+def _event_rows(payload: dict[str, Any], *, stage: str) -> list[dict[str, Any]]:
+    """Validate and return StarLine event rows."""
+    code = _api_code(payload)
+    if code != 200:
+        raise StarLineRequestError(
+            stage,
+            str(payload.get("codestring", "StarLine event request failed")),
+            api_code=code,
+        )
+    events = payload.get("events")
+    if not isinstance(events, list):
+        raise StarLineRequestError(
+            stage, "StarLine returned no event list", api_code=code
+        )
+    return [item for item in events if isinstance(item, dict)]
+
+
+async def async_fetch_device_events(
+    session: ClientSession,
+    slnet_token: str,
+    device_id: int | str,
+    period_start: int,
+    period_end: int,
+) -> list[dict[str, Any]]:
+    """Read the official StarLine event journal using an existing SLNet token."""
+    stage = "device_events"
+    payload = await _async_request_json(
+        session,
+        "POST",
+        f"{STARLINE_API_BASE_URL}/json/v2/device/{device_id}/events",
+        stage=stage,
+        headers={"Cookie": f"slnet={slnet_token}"},
+        json={"period_start": period_start, "period_end": period_end},
+    )
+    return _event_rows(payload, stage=stage)
+
+
+async def async_fetch_event_descriptions(
+    session: ClientSession,
+) -> dict[int, str]:
+    """Read the public StarLine event-description library."""
+    stage = "event_library"
+    payload = await _async_request_json(
+        session,
+        "GET",
+        f"{STARLINE_API_BASE_URL}/json/v3/library/events",
+        stage=stage,
+    )
+    code = _api_code(payload)
+    if code != 200:
+        raise StarLineRequestError(
+            stage,
+            str(payload.get("codestring", "StarLine event library request failed")),
+            api_code=code,
+        )
+    rows = payload.get("eventDescriptions")
+    if not isinstance(rows, list):
+        raise StarLineRequestError(
+            stage, "StarLine returned no event descriptions", api_code=code
+        )
+    descriptions: dict[int, str] = {}
+    for item in rows:
+        if not isinstance(item, dict):
+            continue
+        try:
+            event_id = int(item.get("code"))
+        except (TypeError, ValueError):
+            continue
+        description = str(item.get("desc") or "").strip()
+        if description:
+            descriptions[event_id] = description
+    if not descriptions:
+        raise StarLineRequestError(stage, "StarLine event-description library is empty")
+    return descriptions
+
+
 @dataclass(slots=True, frozen=True)
 class StarLineDevice:
     """A StarLine device discovered on the account."""
@@ -190,6 +318,29 @@ class StarLineApiClient:
             raise StarLineApiError(f"Device {device_id} returned no telemetry data")
         return data
 
+    async def async_get_device_events(
+        self,
+        device_id: int,
+        period_start: int,
+        period_end: int,
+    ) -> list[dict[str, Any]]:
+        """Return the official read-only event journal for one device."""
+        if not self._slnet_token:
+            raise StarLineAuthenticationError("StarLine WebAPI session is missing")
+        try:
+            return await async_fetch_device_events(
+                self._session,
+                self._slnet_token,
+                device_id,
+                period_start,
+                period_end,
+            )
+        except StarLineRequestError as err:
+            if err.http_status in (401, 403) or err.api_code in (401, 403):
+                self._slnet_token = None
+                raise StarLineAuthenticationError("StarLine session expired") from err
+            raise
+
     async def _api_get(
         self,
         path: str,
@@ -229,41 +380,13 @@ class StarLineApiClient:
         stage: str,
         **kwargs: Any,
     ) -> dict[str, Any]:
-        try:
-            async with self._session.request(
-                method, url, timeout=_TIMEOUT, **kwargs
-            ) as response:
-                http_status = response.status
-                try:
-                    payload = await response.json(content_type=None)
-                except (ValueError, TypeError) as err:
-                    raise StarLineRequestError(
-                        stage,
-                        f"Invalid JSON response ({type(err).__name__})",
-                        http_status=http_status,
-                    ) from err
-                if http_status >= 400:
-                    detail = (
-                        str(payload.get("codestring") or payload.get("desc") or response.reason)
-                        if isinstance(payload, dict)
-                        else str(response.reason)
-                    )
-                    raise StarLineRequestError(
-                        stage,
-                        detail or "HTTP request failed",
-                        http_status=http_status,
-                    )
-        except StarLineRequestError:
-            raise
-        except (ClientError, TimeoutError) as err:
-            raise StarLineRequestError(
-                stage,
-                f"{type(err).__name__}: {err}",
-                http_status=getattr(err, "status", None),
-            ) from err
-        if not isinstance(payload, dict):
-            raise StarLineRequestError(stage, "StarLine returned a non-object JSON response")
-        return payload
+        return await _async_request_json(
+            self._session,
+            method,
+            url,
+            stage=stage,
+            **kwargs,
+        )
 
     async def _request_json_with_cookie(
         self,

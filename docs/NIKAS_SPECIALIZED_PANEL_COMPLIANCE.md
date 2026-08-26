@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.5.0. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.5.1. Static bundle checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -27,3 +27,11 @@ Audit target: UI/integration 0.5.0. Static bundle checks pass; final iPhone fiel
 1. Confirm native scrolling on long History/Trips/Diagnostics views at 100% in the iPhone Companion App.
 2. Confirm the fixed two-vehicle selector, Header and Bottom Tab Bar at every scale.
 3. Confirm focal pinch, axis locks, long press, `more-info`, reset toast and safe areas on device.
+
+## v0.5.1 history and typography delta
+
+- The autonomous production bundle now ends with v016, while `panel.py` and the manifest retain the stable `starline-app.js` / `starline-app-panel` entry.
+- History prefers StarLine's read-only journal timestamp and official event-description library; Recorder is an explicitly labelled fallback limited to confirmed state transitions.
+- History rows use the reference-app hierarchy of time plus action without a competing icon. Time is 16px, actions are 18px and responsive rules do not reduce them.
+- Summary labels and values retain their reference-app typography floors without enlarging their plaques.
+- The v016 clamp additionally accounts for a centered canvas offset, keeps fit axes at origin and preserves native vertical scrolling through 100%.

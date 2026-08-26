@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: 0.4.4
+version: 0.5.1
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
 repository_policy: self_contained
@@ -13,9 +13,9 @@ rules:
   entity_binding: registry_unique_id
   user_renamed_entity_ids: supported
   more_info_on_tap: read_only_domains_only
-  history_source: home_assistant_recorder
+  history_source: starline_open_api_events_with_recorder_fallback
   trips_source: device_tracker_history
-  external_starline_history_calls: forbidden
+  external_starline_history_calls: read_only_quota_limited
   external_ui_repository_dependency: forbidden
 
 assets:
@@ -38,9 +38,14 @@ zoom:
   state: [scale, x, y]
   css_zoom: forbidden
   native_scroll_as_canvas_state: forbidden
+  native_vertical_scroll_at_or_below_100_percent: required
   home_assistant_header_scaled: false
   bottom_navigation_scaled: false
-  one_finger_pan_at_all_scales: true
+  offsets_at_or_below_100_percent: {x: 0, y: 0}
+  one_finger_pan_at_all_scales: false
+  one_finger_pan_above_100_percent_only: true
+  pan_axes: overflowing_axes_only
+  fit_axis_offset: 0
   pinch_to_zoom: true
   pinch_origin: midpoint_between_touches
   screen_controls: forbidden
@@ -53,7 +58,10 @@ zoom:
   allow_pan_when_zoomed: true
   clamp_to_scaled_content_bounds: true
   persistence: local_panel_client_and_vehicle
+  persisted_offsets: valid_above_100_percent_only
   restore_before_visible_frame: true
+  tab_switch_native_scroll: top
+  re_clamp_on: [pinch_end, rerender, resize, orientation_change, restore, tab_switch]
   gesture_click_guard: true
   stationary_long_press_preserved: true
   responsive_layout_preserved: true
@@ -97,9 +105,50 @@ summary_screen:
     typography: maximum_without_badge_resize
   map: false
 
+typography:
+  reference: official_starline_mobile_app
+  minimum_size: corresponding_reference_text_size
+  smaller_than_reference: forbidden
+  responsive_reduction_below_reference: forbidden
+  applies_to: all_panel_views
+  implementation_floors_px:
+    compact_label: 11
+    standard_secondary_text: 12
+    summary_value: 14
+    view_title: 21
+    history_date_and_time: 16
+    history_action: 18
+
+shell:
+  header:
+    columns: ["52px", "minmax(0,1fr)", "52px"]
+    phone_min_height_px: 60
+    control_size_px: 44
+    control_radius_px: 16
+    icon_size_px: 25
+    title_px: 21
+    subtitle_px: 12
+  bottom_navigation:
+    fixed_outside_zoom_viewport: true
+    minimum_target_height_px: 52
+    icon_size_px: 28
+    label_size_px: 12
+
 history:
   window_hours: 24
-  source: home_assistant_history_api
+  preferred_source: official_starline_open_api_events
+  preferred_endpoint: POST_read_only_/json/v2/device/{device_id}/events
+  preferred_timestamp: source_event_timestamp
+  preferred_labels: official_event_description_library
+  fallback_source: home_assistant_history_api
+  fallback_timestamp: home_assistant_detection_timestamp
+  fallback_filter: confirmed_state_transitions_only
+  fallback_same_state_updates: omit
+  fallback_unavailable_recovery: omit
+  source_detail: display_only_when_returned_by_starline
+  token_scope: home_assistant_backend_only
+  token_exposure_to_frontend: forbidden
+  daily_cloud_request_budget: 150
   roles: [armed, lock, alarm, door, hood, trunk, parking, ignition, engine_running, r_start, service_mode]
   commands: []
 

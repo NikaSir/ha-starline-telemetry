@@ -18,7 +18,8 @@ Implemented scope:
 - Home Assistant sensors, binary sensors and GPS device tracker;
 - redacted diagnostics;
 - a native read-only StarLine panel with a compatibility bridge to the Home Assistant core `starline` integration;
-- local event history through Home Assistant Recorder;
+- exact read-only event history through the official StarLine journal when an SLNet session is available;
+- confirmed Home Assistant Recorder transitions as the history fallback;
 - local trip reconstruction through recorded `device_tracker` coordinates;
 - Home Assistant native map rendering for current position and movement history;
 - a semantic UI contract and dashboard workspace.
@@ -37,11 +38,13 @@ Authentication itself uses the POST endpoints required by StarLine ID/WebAPI. No
 
 The public StarLine Open API documents a limit of **1000 requests/day per user** for private users. The coordinator reserves quota headroom and calculates its poll interval from the number of discovered vehicles. The minimum poll interval is 180 seconds and the polling budget is capped at approximately 800 device-data requests/day across the account.
 
-History and trip views do not add StarLine cloud requests: they read the Home Assistant Recorder database through the supported History API and native Map card.
+The History view may use the official read-only StarLine event-journal request so it can show source timestamps and source descriptions. Requests are cached, force-refresh is throttled, and the panel has a separate 150-request/day ceiling. Together with the approximately 800-request telemetry budget, this preserves quota headroom. If the read-only journal is unavailable, the panel falls back to confirmed Home Assistant Recorder state transitions. Trips remain local to Recorder.
+
+In core-bridge mode, the request reuses the active core StarLine SLNet session inside Home Assistant. The token is never returned to the browser, logged, or included in diagnostics.
 
 ## Current baseline
 
-Internal integration version: `0.5.0`
+Internal integration version: `0.5.1`
 
 Platforms:
 
@@ -82,7 +85,7 @@ See [`docs/UPDATE_POLICY.md`](docs/UPDATE_POLICY.md) for the repository policy.
 
 ### HACS
 
-Add `https://github.com/NikaSir/ha-starline-telemetry` to HACS as a custom repository with category **Integration**. Download **StarLine Telemetry**, restart Home Assistant, then add it from **Settings → Devices & services → Add integration**.
+Add `https://github.com/NikaSir/ha-starline-telemetry` to HACS as a custom repository with category **Integration**. Download **StarLine Telemetry**, restart Home Assistant, then add it from **Settings → Devices & services → Add integration**. Delivery is commit-based from `main`; GitHub Releases and release tags are not used as the update channel.
 
 ### Manual
 
@@ -123,9 +126,9 @@ The password is SHA-1 hashed before it is stored in the Home Assistant config en
 
 The native panel lives at `/starline` and uses the fixed phone-first navigation:
 
-**Состояние → История → Поездки → Диагностика**
+**Сводка → История → Поездки → Диагностика**
 
-### Состояние
+### Сводка
 
 The daily-use screen follows the information hierarchy of the native StarLine mobile application while keeping the NikaS Home Assistant visual language:
 
@@ -137,7 +140,7 @@ The daily-use screen follows the information hierarchy of the native StarLine mo
 
 ### История
 
-The timeline is reconstructed from Home Assistant Recorder state transitions for the StarLine security/perimeter/engine entities over the last 24 hours.
+The timeline prefers the official StarLine event journal for the last 24 hours. This preserves the event timestamp and the official event description, including an action source such as a штатный брелок when StarLine returns it. If no usable StarLine session is available, the timeline uses Home Assistant Recorder and explicitly identifies the displayed time as the moment Home Assistant detected the state transition.
 
 ### Поездки
 
@@ -167,7 +170,8 @@ See:
 6. Dashboard entity binding is registry/contract-driven rather than hard-coded to one installation.
 7. Delivery is commit-based from `main`; GitHub Releases are not part of the update process.
 8. The native panel remains read-only even when its compatibility source exposes writable entities.
-9. History and trip reconstruction use local Home Assistant Recorder data, not StarLine cloud history calls.
+9. Event history uses only the official read-only StarLine journal endpoint, under a separate quota ceiling, with Recorder as a state-transition-only fallback.
+10. Corresponding panel typography is never smaller than the official StarLine mobile application reference.
 
 ## License
 

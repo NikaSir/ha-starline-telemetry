@@ -26,8 +26,11 @@ PLATFORMS: tuple[Platform, ...] = (
 
 MIN_SCAN_INTERVAL = timedelta(seconds=180)
 DAILY_DEVICE_REQUEST_BUDGET = 800
+DAILY_HISTORY_REQUEST_BUDGET = 150
 SECONDS_PER_DAY = 86_400
 REQUEST_TIMEOUT_SECONDS = 20
+HISTORY_CACHE_SECONDS = 300
+HISTORY_FORCE_REFRESH_SECONDS = 60
 
 STARLINE_ID_BASE_URL = "https://id.starline.ru"
 STARLINE_API_BASE_URL = "https://developer.starline.ru"
@@ -35,6 +38,6 @@ STARLINE_API_BASE_URL = "https://developer.starline.ru"
 PANEL_TITLE = "StarLine"
 PANEL_ICON = "mdi:car-connected"
 PANEL_URL_PATH = "starline"
-PANEL_VERSION = "0.5.0-ui-standard"
+PANEL_VERSION = "0.5.1-history-journal"
 PANEL_PARENT_ROUTE = "house.vehicles"
 PANEL_PREFERRED_VIEW = "status"
