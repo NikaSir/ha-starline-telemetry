@@ -1,57 +1,75 @@
-# NikaS Specialized Panel UI Standard v1.4
+# NikaS Specialized Panel UI Standard v1.5
 
-**Status:** REQUIRED  
-**Canonical source:** `NikaSir/ha-contract-generated-ui`  
-**Canonical standards:** Shell v1.4 · Zoom v1.4 · Integration UI v1.5 · Frontend Delivery v1.2  
-**Reference field implementation:** Stark SolarPower 1.8.10
+**Status:** REQUIRED
 
-## Shell
+**Canonical source:** `NikaSir/ha-contract-generated-ui`
 
-- Effective safe area is consumed exactly once.
-- Permanent left Header control is Home Assistant `☰` only and dispatches `hass-toggle-menu`.
-- Back, parent arrow, integration drawer and device action are prohibited in that rail; parent navigation belongs inside work content.
-- Header, optional peer-device selector and fixed full-width Bottom Tab Bar remain native scale.
-- Exactly one fixed work-canvas viewport exists.
+**Local owner:** `NikaSir/ha-starline-telemetry`
 
-## Transform-owned canvas
+**Visual reference:** Stark SolarPower (UPS panel)
 
-- Only work content transforms through `translate3d(x,y,0) scale(s)`.
-- Durable state is `{scale,x,y}`, never `scrollLeft` / `scrollTop`.
-- CSS `zoom`, page zoom and native overflow scrolling are not canvas position engines.
-- One finger pans at any scale, including vertical movement at 100%.
-- Two fingers pinch around their midpoint.
-- Coordinates are clamped to real scaled-content bounds.
-- Final transform remains after release.
-- State persists locally per panel/client and peer device where applicable.
-- Telemetry rerender restores transform on new DOM before the visible frame.
-- Installation is idempotent: no nested wrappers, duplicate handlers, blank areas or progressive shrink.
+This synchronized snapshot replaces every older local rule that permits one-finger canvas movement at 100%, uses CSS `zoom`, or treats native overflow scrolling as the position engine of an enlarged canvas. Domain UI must not be redesigned during a shell-only migration.
 
-## Interaction guard
+## Shell and safe areas
 
-- A second finger immediately blocks pending `more-info`.
-- Pan threshold cancels pending hold through `pointercancel` semantics.
-- Synthetic clicks after gestures are briefly suppressed.
-- Pinch/pan/reset never execute device actions.
-- Stationary intentional long press still opens native `more-info`.
+- Header, optional peer-device selector and Bottom Tab Bar are outside the zoom viewport and never scale or pan.
+- Consume each effective iPhone safe area exactly once. Header content stays below the Dynamic Island/notch and the Bottom Tab Bar stays above the Home Indicator.
+- Exactly one zoom viewport and one work canvas may exist per panel instance. Installation and telemetry rerendering are idempotent: no nested wrappers, duplicated handlers, abandoned blank space or progressive shrinking.
+- Responsive layout is selected before scaling.
 
-## Reset
+## Header — UPS reference geometry
 
-- No permanent `− / % / +` controls.
-- Two-finger double tap resets `{scale:1,x:0,y:0}`.
-- Pinch ending at 97–103% snaps to exact 100%/origin.
-- Reset/snap briefly shows native-scale `Масштаб 100%`.
+- Header grid is `52px minmax(0,1fr) 52px`; `48px minmax(0,1fr) 48px` is allowed only when the viewport is too narrow for the title.
+- Minimum Header height is `62px`, or `60px` on a phone, excluding the safe-area inset consumed above it.
+- The title is geometrically centered. Main title: `21px`, weight `800`. Optional subtitle/version: `12px`, weight `560`, `var(--secondary-text-color)`.
+- The permanent left control is only the Home Assistant system menu. It uses `<ha-icon icon="mdi:menu">` and dispatches `hass-toggle-menu` with bubbling and composed semantics. Back arrows, integration menus and device actions are forbidden in the left rail.
+- At most one global action is allowed at right. If refresh is present, it uses `<ha-icon icon="mdi:refresh">`.
+- Left and right controls use identical `44px × 44px` plaques: `16px` radius, `var(--card-background-color)` background, `1px solid var(--divider-color)` border and the subtle UPS shadow. Icon size is `25px`.
+- Menu color is `var(--primary-text-color)`; refresh color is `var(--primary-color)`. Refresh must not be a transparent bare glyph.
+- Keep left and right rails symmetrical even when the right action is absent. Parent navigation belongs inside work content.
 
-## Semantics and delivery
+## Scale and position
 
-- Normal measurements are neutral; semantic colors express confirmed state.
-- `unknown`, `unavailable`, stale or untrusted source never appears healthy.
-- Backend semantic thresholds remain authoritative; unsupported values are not invented.
-- Critical artwork is local, cache-busted and separate from live state layers.
-- Production frontend is one deterministic self-contained entry with manifest/registration parity.
+- Only work content scales. Use one transform layer (`translate3d(x,y,0) scale(s)` or an equivalent single transform-owned canvas); never CSS `zoom`.
+- Pinch with two fingers scales around their midpoint. Permanent `− / % / +` controls are forbidden.
+- Supported/recommended range is `75–200%`, default `100%`.
+- At `100%`, transform coordinates are exactly `x = 0`, `y = 0`. One-finger pan is disabled, horizontal overflow is forbidden, and the work area uses ordinary native vertical scrolling.
+- At `75–96%`, one-finger pan also remains disabled and transform offsets remain at origin; the reduced layout must not expose draggable empty space.
+- One-finger pan is enabled only above `100%`, and independently per axis only when scaled content overflows that viewport axis.
+- Clamp movement to the real scaled-content edges. If an axis fits, its offset is fixed at origin. Empty field outside the panel must never be pullable into view.
+- Re-clamp after pinch completion, rerender, orientation/viewport resize and restored persisted state.
+- Pinch completion in `97–103%` snaps to exact `{scale:1,x:0,y:0}`.
+- A two-finger double tap resets scale and transform position to 100%/origin and briefly shows native-scale `Масштаб 100%`.
+- Persist scale locally per panel/client and per selected peer device where applicable. Persist transform offsets only when valid above 100%; never restore invalid offsets.
+- Switching a Bottom Tab returns native vertical scroll to the top, retains scale if desired, and re-clamps or clears invalid transform offsets.
 
-## Acceptance
+## Gesture and interaction guard
 
-Field-check iPhone Companion App: safe area, `hass-toggle-menu`, native Header/selector/Bottom Tab, one canvas, persistent one-finger movement at 100%, focal-point pinch, real bounds, reset/snap/feedback, pre-paint restoration, accidental-detail suppression, stationary long press, explicit unreliable states and no shell duplication after repeated HA updates.
+- At 100%, native vertical scroll, taps, `more-info` and intentional stationary long press work without gesture delay or conflict.
+- A second finger immediately cancels pending `more-info`. Crossing the pan threshold above 100% cancels a pending hold through `pointercancel` semantics.
+- Synthetic clicks immediately after a pinch/pan/reset are briefly suppressed. Gestures never execute device actions.
 
-> Canonical policy remains in `ha-contract-generated-ui`; newer canonical standards override this synchronized snapshot.
+## Bottom Tab Bar — UPS reference geometry
 
+- Use one fixed, full-width, edge-attached bar outside the zoom viewport; it is not a floating card.
+- Background is `var(--card-background-color)`, with a top divider and the subtle UPS upper shadow. Bottom padding includes `env(safe-area-inset-bottom)` exactly once.
+- All tabs have equal width and a minimum target height of `52px`.
+- Icons are MDI icons rendered by `<ha-icon>`, size `28px`; text/emoji glyphs are forbidden as navigation icons.
+- Labels are one-line, readable, `12px`, weight `700`; shorten a long label rather than shrinking it below the standard.
+- Active tab uses `var(--primary-color)` for icon and label plus an approximately 11% primary-color background with `13–14px` radius and no extra active shadow. Inactive tabs use the secondary text color.
+- Final content must be able to scroll fully clear of the fixed bar.
+
+## Branding and repository identity
+
+- Every integration repository ships an approved square integration icon at `custom_components/<domain>/brand/icon.png`; do not synthesize or reinterpret a trademark without an approved source.
+- Add light/dark variants or a separate logo only when an approved source exists and contrast requires them. Missing optional artwork must never be replaced by generated branding.
+- The README must display the approved local icon/logo and use the same integration name as `manifest.json` and `hacs.json`.
+- Verify the actual HACS/HA installation path and domain in README, manifest and package tree. If Home Assistant requires centralized brand publication for a particular surface, track that submission separately; the local asset remains the repository source.
+- Configure the GitHub repository avatar/social preview from the same approved identity where repository settings permit it; this setting requires a manual GitHub check.
+
+## Delivery and acceptance
+
+- Keep one stable, cache-busted production entry module; registration, manifest, route, component name and shipped assets must agree.
+- Required phone checks: native scrolling on long diagnostics; no horizontal or vertical transform movement at 100%; no pullable blank field; axis-specific pan only above 100%; clamp after release and resize; stable focal pinch; taps do not become pans; tab change returns to top; Header and Bottom Tab Bar stay fixed; `hass-toggle-menu`, refresh plaque, safe areas, integration icon and README identity are correct.
+
+> Newer canonical standards in `ha-contract-generated-ui` override this synchronized local snapshot.
