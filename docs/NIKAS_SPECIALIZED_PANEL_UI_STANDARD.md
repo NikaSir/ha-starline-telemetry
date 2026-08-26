@@ -190,4 +190,5 @@ Each repository also maintains `docs/NIKAS_SPECIALIZED_PANEL_COMPLIANCE.md` (or 
 
 - NikaS panel and integration work is published through traceable commits, branches and pull requests.
 - GitHub Releases are not used.
+- Automatic release tags are not used as a publication gate or update channel. An internal integration/UI version does not require a Git tag.
 - A pull request remains draft until automated checks pass and the real-phone acceptance items above are ready for user verification.
