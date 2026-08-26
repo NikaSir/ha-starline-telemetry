@@ -5,6 +5,11 @@ const UI_VERSION = "0.5.3";
 
 class StarLineAppPanelV018 extends BASE_COMPONENT {
   _summarySecurity(vehicle) {
+    const alarm = this._entity(vehicle, ["alarm"]);
+    if (alarm && this._isOn(alarm) === true) {
+      return '<div class="summary-security danger alarm"><ha-icon icon="mdi:shield-alert"></ha-icon><div><span>Охрана</span><strong>Тревога</strong></div></div>';
+    }
+
     const entity = this._entity(vehicle, ["lock", "armed", "security"]);
     if (entity) {
       const locked = this._isLocked(entity);
@@ -87,6 +92,15 @@ class StarLineAppPanelV018 extends BASE_COMPONENT {
         .summary-security.armed ha-icon,
         .summary-security.armed strong {
           color:#0b67b2 !important;
+        }
+        .summary-security.alarm {
+          border-color:color-mix(in srgb,var(--danger) 36%,rgba(255,255,255,.9)) !important;
+          background:color-mix(in srgb,var(--danger) 10%,rgba(255,255,255,.94)) !important;
+          box-shadow:0 3px 12px color-mix(in srgb,var(--danger) 18%,transparent) !important;
+        }
+        .summary-security.alarm ha-icon,
+        .summary-security.alarm strong {
+          color:var(--danger) !important;
         }
         .summary-security.disarmed {
           border-color:rgba(255,255,255,.9) !important;

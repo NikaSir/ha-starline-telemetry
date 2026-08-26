@@ -84,6 +84,7 @@ assert.match(sceneSource, /_summarySceneGrowth\(viewportHeight, canvasHeight, sc
 assert.match(sceneSource, /\.dual-summary > \.target-card > \.target-hero/);
 assert.match(sceneSource, /new ResizeObserver\(\(\) => this\._fitSummaryScenes\(\)\)/);
 assert.match(sceneSource, /\.summary-security\.armed[\s\S]*#e7f5ff/);
+assert.match(sceneSource, /\.summary-security\.alarm[\s\S]*var\(--danger\)/);
 assert.doesNotMatch(sceneSource, /font-size:/, "scene pass must preserve typography floors");
 assert.doesNotMatch(sceneSource, /_eventsFromHistory|_starLineEvents|panel\/history/, "scene pass must not change history or statistics");
 assert.match(bundle, /starline-app-panel-v018/);
@@ -140,6 +141,7 @@ assert.equal(instance._summarySceneGrowth(720, 660, 0), 0);
 
 const originalEntity = instance._entity;
 const originalIsLocked = instance._isLocked;
+const originalIsOn = instance._isOn;
 instance._entity = (_vehicle, keys) => (keys.includes("armed") ? { state: { state: "on" } } : null);
 instance._isLocked = () => true;
 assert.match(instance._summarySecurity({}), /summary-security ok armed/);
@@ -148,8 +150,19 @@ assert.match(instance._summarySecurity({}), /<strong>Включена<\/strong>/
 instance._isLocked = () => false;
 assert.match(instance._summarySecurity({}), /summary-security warn disarmed/);
 assert.match(instance._summarySecurity({}), /<strong>Снята<\/strong>/);
+instance._entity = (_vehicle, keys) => {
+  if (keys.includes("alarm")) return { state: { state: "on" } };
+  if (keys.includes("armed")) return { state: { state: "on" } };
+  return null;
+};
+instance._isOn = () => true;
+instance._isLocked = () => true;
+assert.match(instance._summarySecurity({}), /summary-security danger alarm/);
+assert.match(instance._summarySecurity({}), /mdi:shield-alert/);
+assert.match(instance._summarySecurity({}), /<strong>Тревога<\/strong>/);
 instance._entity = originalEntity;
 instance._isLocked = originalIsLocked;
+instance._isOn = originalIsOn;
 
 let fixedSwitcherQueries = 0;
 instance.shadowRoot = {
