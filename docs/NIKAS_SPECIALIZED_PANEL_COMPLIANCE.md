@@ -51,3 +51,16 @@ Audit target: UI/integration 0.5.3. Static bundle checks pass; final iPhone fiel
 - Armed state reads `Охрана / Включена` on a blue-tinted shield plaque. Disarmed remains neutral and alarm remains red.
 - The fit is recalculated when the content viewport changes and does not alter the transform-owned scaling model.
 - History sources, event timestamps, action labels and statistics remain unchanged.
+
+
+<!-- v1.6-adoption -->
+## v1.6 adoption delta — 2026-08-26
+
+This section is normative. Earlier PASS evidence was collected against the v1.5 shell.
+
+- **Indicator policy:** the common two-level connection/freshness indicator is explicitly **DISABLED** for StarLine and must not be introduced.
+- Vehicle-specific GSM/GPS/telemetry facts may remain domain content, but they are not converted into the common `Локально / Облако / Резерв` plaque.
+- **Stable DOM:** polling, vehicle updates and freshness changes patch existing content and never rebuild the shell, image, map, viewport or navigation.
+- **Fixed chrome:** Header and Bottom Tab Bar remain stationary on short/long views and during outer-boundary pull; Work Viewport is the sole scroll owner.
+- **Typography:** meaningful text follows the common minimum and must not be made smaller than the approved original StarLine reference.
+- **Brand:** repository and packaged integration identity remain mandatory.
