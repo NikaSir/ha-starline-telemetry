@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: 0.5.1
+version: 0.5.2
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
 repository_policy: self_contained
@@ -92,6 +92,7 @@ summary_screen:
   purpose: simultaneous_state_of_all_vehicles
   vehicle_order: [130-й, 683-й]
   vehicle_cards: all
+  vehicle_switcher: hidden
   model_label: Nissan MURANO Z52
   iphone_target: true
   workspace_heading: false
@@ -100,8 +101,9 @@ summary_screen:
     hero_layers: [background, vehicle_image, live_metrics, security_badge, connectivity]
     live_metrics_row: [battery, fuel, engine_temperature, cabin_temperature]
     perimeter_row: [hood, door, trunk]
-    operational_row: [engine_running, parking, last_event]
+    operational_row: [engine_running, last_event, parking]
     last_event: compact_in_operational_row
+    last_event_width: expanded_from_parking_column
     typography: maximum_without_badge_resize
   map: false
 

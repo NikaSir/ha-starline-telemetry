@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.5.1. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.5.2. Static bundle checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -25,7 +25,7 @@ Audit target: UI/integration 0.5.1. Static bundle checks pass; final iPhone fiel
 ## Remaining field checks
 
 1. Confirm native scrolling on long History/Trips/Diagnostics views at 100% in the iPhone Companion App.
-2. Confirm the fixed two-vehicle selector, Header and Bottom Tab Bar at every scale.
+2. Confirm the vehicle selector on History/Trips/Diagnostics, its absence on Summary, and the Header and Bottom Tab Bar at every scale.
 3. Confirm focal pinch, axis locks, long press, `more-info`, reset toast and safe areas on device.
 
 ## v0.5.1 history and typography delta
@@ -35,3 +35,11 @@ Audit target: UI/integration 0.5.1. Static bundle checks pass; final iPhone fiel
 - History rows use the reference-app hierarchy of time plus action without a competing icon. Time is 16px, actions are 18px and responsive rules do not reduce them.
 - Summary labels and values retain their reference-app typography floors without enlarging their plaques.
 - The v016 clamp additionally accounts for a centered canvas offset, keeps fit axes at origin and preserves native vertical scrolling through 100%.
+
+## v0.5.2 Summary visual delta
+
+- The Summary screen no longer renders the redundant two-vehicle selector because both vehicle cards are already visible together.
+- History, Trips and Diagnostics retain the selector so their single-vehicle content remains addressable.
+- The operational row is visually ordered as engine, latest event and handbrake. The event receives the width released from the handbrake column.
+- Plaque heights and the v0.5.1 typography floors are unchanged; responsive rules do not reduce corresponding text below the official StarLine reference.
+- Event sources, timestamps, labels and all other history/statistics behavior remain unchanged in this visual-only pass.

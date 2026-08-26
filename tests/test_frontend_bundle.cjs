@@ -6,10 +6,11 @@ const panel = fs.readFileSync("custom_components/starline_telemetry/panel.py", "
 const manifest = JSON.parse(fs.readFileSync("custom_components/starline_telemetry/frontend/panel_manifest.json", "utf8"));
 const bundle = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app.js", "utf8");
 const source = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v016.js", "utf8");
+const visualSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v017.js", "utf8");
 
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
-assert.equal(manifest.version, "0.5.1");
+assert.equal(manifest.version, "0.5.2");
 assert.equal(manifest.zoom.native_vertical_scroll_at_or_below_percent, 100);
 assert.equal(manifest.zoom.one_finger_pan, "above_100_percent_on_overflowing_axes_only");
 assert.deepEqual(manifest.typography.floors_px, {
@@ -20,6 +21,13 @@ assert.deepEqual(manifest.typography.floors_px, {
   history_date_and_time: 16,
   history_action: 18,
 });
+assert.deepEqual(manifest.summary.operational_order, [
+  "engine_running",
+  "last_event",
+  "parking",
+]);
+assert.equal(manifest.summary.vehicle_switcher, "hidden");
+assert.equal(manifest.summary.last_event_width, "expanded_from_parking_column");
 assert.match(panel, /starline-app\.js\?v=/);
 assert.doesNotMatch(bundle, /^import\s+/m, "production bundle must have no runtime imports");
 assert.match(bundle, /customElements\.define\("starline-app-panel"/);
@@ -52,6 +60,14 @@ assert.match(source, /font-size:16px !important/);
 assert.match(source, /font-size:18px !important/);
 assert.match(source, /\.trip-times,[\s\S]*\.diag-state > span,[\s\S]*font-size:12px !important/);
 assert.match(source, /\.telemetry-chip span,[\s\S]*\.m-event span \{ font-size:11px !important/);
+
+assert.match(visualSource, /if \(this\._view === "status"\) return;/);
+assert.match(visualSource, /super\._installFixedVehicleSwitcher\(\)/);
+assert.match(visualSource, /grid-template-columns:minmax\(92px,1fr\) minmax\(0,1\.55fr\) minmax\(80px,\.65fr\)/);
+assert.match(visualSource, /\.operational-row > \.event-state \{[\s\S]*order:2;[\s\S]*border-right:1px solid var\(--border\)/);
+assert.match(visualSource, /\.operational-row > \.summary-state:nth-child\(2\) \{[\s\S]*order:3;[\s\S]*border-right:0/);
+assert.doesNotMatch(visualSource, /font-size:/, "visual layout pass must preserve typography floors");
+assert.match(bundle, /starline-app-panel-v017/);
 
 process.env.TZ = "Europe/Moscow";
 const registry = new Map();
@@ -98,6 +114,21 @@ vm.runInThisContext(bundle, { filename: "starline-app.js" });
 const Panel = customElements.get("starline-app-panel");
 assert.ok(Panel, "stable production component must be registered");
 const instance = new Panel();
+
+let fixedSwitcherQueries = 0;
+instance.shadowRoot = {
+  querySelector() {
+    fixedSwitcherQueries += 1;
+    return null;
+  },
+};
+instance._orderedVehicles = () => [];
+instance._view = "status";
+instance._installFixedVehicleSwitcher();
+assert.equal(fixedSwitcherQueries, 0, "Summary must not attempt to install a vehicle switcher");
+instance._view = "history";
+instance._installFixedVehicleSwitcher();
+assert.equal(fixedSwitcherQueries, 1, "single-vehicle views must retain the vehicle switcher path");
 
 const iso = (hour, minute, second) => new Date(Date.UTC(2026, 7, 26, hour, minute, second)).toISOString();
 const vehicle = {
