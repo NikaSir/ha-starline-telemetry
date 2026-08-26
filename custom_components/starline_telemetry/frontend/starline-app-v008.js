@@ -80,7 +80,7 @@ class StarLineAppPanelV008 extends BASE_COMPONENT {
   }
 
   _installCommonHeader() {
-    if (!this._mobileOnly() || !this.shadowRoot) return;
+    if (!this.shadowRoot) return;
     const header = this.shadowRoot.querySelector("header");
     if (!header) return;
 

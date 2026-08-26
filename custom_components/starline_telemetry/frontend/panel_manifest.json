@@ -1,9 +1,9 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.4.4",
-  "entry_module": "starline-app-v015.js",
-  "web_component": "starline-app-panel-v015",
+  "version": "0.5.0",
+  "entry_module": "starline-app.js",
+  "web_component": "starline-app-panel",
   "home_assistant_menu_event": "hass-toggle-menu",
   "zoom": {
     "engine": "transform",
@@ -16,6 +16,9 @@
     "min_percent": 75,
     "max_percent": 200,
     "controls": "gesture_only",
+    "native_scroll_at_100": true,
+    "pan_above_percent": 100,
+    "axis_lock_when_fitted": true,
     "reset": "two_finger_double_tap",
     "snap_percent_range": [
       97,

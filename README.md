@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="custom_components/starline_telemetry/brand/icon.png" width="112" height="112" alt="StarLine Telemetry icon">
+</p>
+
 # StarLine Telemetry for Home Assistant
 
 Read-only StarLine telemetry integration and dashboard for Home Assistant — vehicle status, location, security, history, trips and diagnostics.
@@ -37,7 +41,7 @@ History and trip views do not add StarLine cloud requests: they read the Home As
 
 ## Current baseline
 
-Internal integration version: `0.2.0`
+Internal integration version: `0.5.0`
 
 Platforms:
 
@@ -75,6 +79,10 @@ After HACS downloads a changed custom component, restart Home Assistant before t
 See [`docs/UPDATE_POLICY.md`](docs/UPDATE_POLICY.md) for the repository policy.
 
 ## Installation
+
+### HACS
+
+Add `https://github.com/NikaSir/ha-starline-telemetry` to HACS as a custom repository with category **Integration**. Download **StarLine Telemetry**, restart Home Assistant, then add it from **Settings → Devices & services → Add integration**.
 
 ### Manual
 
