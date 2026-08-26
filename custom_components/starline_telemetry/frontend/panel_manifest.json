@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "home_assistant_menu_event": "hass-toggle-menu",
@@ -62,6 +62,16 @@
       "icon_size_px": 28,
       "label_size_px": 12
     }
+  },
+  "summary": {
+    "vehicle_switcher": "hidden",
+    "vehicle_cards": "all",
+    "operational_order": [
+      "engine_running",
+      "last_event",
+      "parking"
+    ],
+    "last_event_width": "expanded_from_parking_column"
   },
   "history": {
     "preferred_source": "official_starline_open_api_events",
