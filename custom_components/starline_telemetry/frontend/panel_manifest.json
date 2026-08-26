@@ -1,9 +1,9 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.4.3",
-  "entry_module": "starline-app-v014.js",
-  "web_component": "starline-app-panel-v014",
+  "version": "0.4.4",
+  "entry_module": "starline-app-v015.js",
+  "web_component": "starline-app-panel-v015",
   "home_assistant_menu_event": "hass-toggle-menu",
   "zoom": {
     "engine": "transform",
