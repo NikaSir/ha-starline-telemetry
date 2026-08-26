@@ -67,6 +67,14 @@ This synchronized snapshot replaces every older local rule that permits one-fing
 - Verify the actual HACS/HA installation path and domain in README, manifest and package tree. If Home Assistant requires centralized brand publication for a particular surface, track that submission separately; the local asset remains the repository source.
 - Configure the GitHub repository avatar/social preview from the same approved identity where repository settings permit it; this setting requires a manual GitHub check.
 
+## Reference-app typography
+
+- The official StarLine mobile application is the minimum typography reference for corresponding panel content.
+- A panel label, value, timestamp or action name must never render smaller than its corresponding StarLine reference text.
+- Responsive breakpoints may reflow or truncate content, but must not reduce text below that reference floor.
+- History action names use the original StarLine event-description library when the read-only journal is available.
+- History timestamps state their semantics: StarLine source time is preferred; Home Assistant detection time is labelled when Recorder is the fallback.
+
 ## Delivery and acceptance
 
 - Keep one stable, cache-busted production entry module; registration, manifest, route, component name and shipped assets must agree.

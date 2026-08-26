@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "home_assistant_menu_event": "hass-toggle-menu",
@@ -19,12 +19,55 @@
     "native_scroll_at_100": true,
     "pan_above_percent": 100,
     "axis_lock_when_fitted": true,
+    "native_vertical_scroll_at_or_below_percent": 100,
+    "one_finger_pan": "above_100_percent_on_overflowing_axes_only",
+    "offsets_at_or_below_100_percent": {
+      "x": 0,
+      "y": 0
+    },
+    "fit_axis_offset": 0,
+    "tab_switch_scroll": "top",
     "reset": "two_finger_double_tap",
     "snap_percent_range": [
       97,
       103
     ],
     "feedback": "Масштаб 100%"
+  },
+  "typography": {
+    "reference": "official_starline_mobile_app",
+    "minimum": "not_smaller_than_corresponding_reference_text",
+    "responsive_reduction_below_reference": false,
+    "floors_px": {
+      "compact_label": 11,
+      "standard_secondary_text": 12,
+      "summary_value": 14,
+      "view_title": 21,
+      "history_date_and_time": 16,
+      "history_action": 18
+    }
+  },
+  "shell": {
+    "header": {
+      "columns": "52px minmax(0,1fr) 52px",
+      "phone_min_height_px": 60,
+      "control_size_px": 44,
+      "control_radius_px": 16,
+      "icon_size_px": 25,
+      "title_px": 21,
+      "subtitle_px": 12
+    },
+    "bottom_navigation": {
+      "minimum_target_height_px": 52,
+      "icon_size_px": 28,
+      "label_size_px": 12
+    }
+  },
+  "history": {
+    "preferred_source": "official_starline_open_api_events",
+    "fallback_source": "home_assistant_recorder_state_transitions",
+    "preferred_time": "starline_event_timestamp",
+    "fallback_time": "home_assistant_detection_timestamp"
   },
   "assets": [
     "assets/starline-bg-130-v2.webp",

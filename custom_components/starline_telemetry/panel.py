@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
+from datetime import UTC, datetime
 import logging
 from pathlib import Path
 import re
+import time
 from typing import Any
 
 import voluptuous as vol
@@ -14,8 +17,27 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr, entity_registry as er
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import CORE_STARLINE_DOMAIN, DOMAIN, PANEL_ICON, PANEL_PARENT_ROUTE, PANEL_PREFERRED_VIEW, PANEL_TITLE, PANEL_URL_PATH, PANEL_VERSION
+from .api import (
+    StarLineApiError,
+    StarLineAuthenticationError,
+    async_fetch_device_events,
+    async_fetch_event_descriptions,
+)
+from .const import (
+    CORE_STARLINE_DOMAIN,
+    DAILY_HISTORY_REQUEST_BUDGET,
+    DOMAIN,
+    HISTORY_CACHE_SECONDS,
+    HISTORY_FORCE_REFRESH_SECONDS,
+    PANEL_ICON,
+    PANEL_PARENT_ROUTE,
+    PANEL_PREFERRED_VIEW,
+    PANEL_TITLE,
+    PANEL_URL_PATH,
+    PANEL_VERSION,
+)
 
 _LOGGER = logging.getLogger(__name__)
 PANEL_STATIC_URL = f"/{DOMAIN}_static"
@@ -25,6 +47,10 @@ _DATA_PANEL_REGISTERED = "native_panel_registered"
 _DATA_STATIC_REGISTERED = "native_panel_static_registered"
 _DATA_WS_REGISTERED = "native_panel_ws_registered"
 _DATA_PANEL_ENTRY_ID = "native_panel_entry_id"
+_DATA_HISTORY_CACHE = "native_panel_history_cache"
+_DATA_HISTORY_LOCKS = "native_panel_history_locks"
+_DATA_HISTORY_BUDGET = "native_panel_history_budget"
+_DATA_EVENT_DESCRIPTIONS = "native_panel_event_descriptions"
 _CORE_UNIQUE_ID = re.compile(r"^starline-(?P<key>.+)-(?P<device_id>\d+)$")
 _TELEMETRY_UNIQUE_ID = re.compile(r"^(?P<device_id>\d+)_(?P<key>.+)$")
 
@@ -78,6 +104,165 @@ def _bootstrap_payload(hass: HomeAssistant, entry: ConfigEntry | None) -> dict[s
     return {"panel": {"id": "starline", "title": PANEL_TITLE, "path": f"/{PANEL_URL_PATH}", "icon": PANEL_ICON, "parent_route": PANEL_PARENT_ROUTE, "preferred_view": PANEL_PREFERRED_VIEW, "version": PANEL_VERSION, "read_only": True}, "source": {"primary": "starline_telemetry" if any("starline_telemetry" in vehicle["sources"].values() for vehicle in vehicles) else "core_starline", "core_entries": len(hass.config_entries.async_entries(CORE_STARLINE_DOMAIN)), "telemetry_entries": len(hass.config_entries.async_entries(DOMAIN)), "bridge_entry_id": entry.entry_id if entry is not None else None}, "vehicles": vehicles}
 
 
+def _history_domain_data(hass: HomeAssistant) -> dict[str, Any]:
+    return hass.data.setdefault(DOMAIN, {})
+
+
+def _history_lock(hass: HomeAssistant, key: str) -> asyncio.Lock:
+    locks = _history_domain_data(hass).setdefault(_DATA_HISTORY_LOCKS, {})
+    return locks.setdefault(key, asyncio.Lock())
+
+
+def _consume_history_budget(hass: HomeAssistant) -> None:
+    domain_data = _history_domain_data(hass)
+    today = datetime.now(UTC).date().isoformat()
+    budget = domain_data.setdefault(_DATA_HISTORY_BUDGET, {"day": today, "used": 0})
+    if budget.get("day") != today:
+        budget.update({"day": today, "used": 0})
+    if int(budget.get("used", 0)) >= DAILY_HISTORY_REQUEST_BUDGET:
+        raise StarLineApiError("StarLine history request budget is exhausted for today")
+    budget["used"] = int(budget.get("used", 0)) + 1
+
+
+async def _event_descriptions(hass: HomeAssistant) -> dict[int, str]:
+    domain_data = _history_domain_data(hass)
+    cached = domain_data.get(_DATA_EVENT_DESCRIPTIONS)
+    if isinstance(cached, dict) and cached:
+        return cached
+    async with _history_lock(hass, "event_descriptions"):
+        cached = domain_data.get(_DATA_EVENT_DESCRIPTIONS)
+        if isinstance(cached, dict) and cached:
+            return cached
+        descriptions = await async_fetch_event_descriptions(
+            async_get_clientsession(hass)
+        )
+        domain_data[_DATA_EVENT_DESCRIPTIONS] = descriptions
+        return descriptions
+
+
+def _telemetry_client_for_device(hass: HomeAssistant, device_id: str):
+    for entry in hass.config_entries.async_entries(DOMAIN):
+        runtime = getattr(entry, "runtime_data", None)
+        client = getattr(runtime, "client", None)
+        coordinator = getattr(runtime, "coordinator", None)
+        device_ids = getattr(coordinator, "device_ids", ())
+        if client is not None and any(str(item) == device_id for item in device_ids):
+            return client
+    return None
+
+
+def _core_token_for_device(hass: HomeAssistant, device_id: str) -> str | None:
+    for entry in hass.config_entries.async_entries(CORE_STARLINE_DOMAIN):
+        account = getattr(entry, "runtime_data", None)
+        api = getattr(account, "api", None)
+        devices = getattr(api, "devices", {})
+        if not any(str(item) == device_id for item in devices):
+            continue
+        token = entry.data.get("slnet_token")
+        if token:
+            return str(token)
+    return None
+
+
+async def _read_starline_event_rows(
+    hass: HomeAssistant,
+    device_id: str,
+    period_start: int,
+    period_end: int,
+) -> list[dict[str, Any]]:
+    if client := _telemetry_client_for_device(hass, device_id):
+        try:
+            return await client.async_get_device_events(
+                int(device_id), period_start, period_end
+            )
+        except StarLineAuthenticationError:
+            await client.async_authenticate()
+            return await client.async_get_device_events(
+                int(device_id), period_start, period_end
+            )
+
+    if token := _core_token_for_device(hass, device_id):
+        return await async_fetch_device_events(
+            async_get_clientsession(hass),
+            token,
+            device_id,
+            period_start,
+            period_end,
+        )
+
+    raise StarLineApiError("No StarLine read-only history token is available")
+
+
+def _normalize_starline_events(
+    rows: list[dict[str, Any]],
+    descriptions: dict[int, str],
+    period_start: int,
+    period_end: int,
+) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for item in rows:
+        try:
+            timestamp = int(item.get("timestamp", item.get("ts")))
+            event_id = int(item.get("type", item.get("event_id")))
+        except (TypeError, ValueError):
+            continue
+        if timestamp < period_start or timestamp > period_end:
+            continue
+        group_raw = item.get("groupId", item.get("group_id"))
+        try:
+            group_id = int(group_raw) if group_raw is not None else None
+        except (TypeError, ValueError):
+            group_id = None
+        events.append(
+            {
+                "timestamp": timestamp,
+                "event_id": event_id,
+                "group_id": group_id,
+                "description": descriptions.get(
+                    event_id, f"Событие StarLine #{event_id}"
+                ),
+            }
+        )
+    return sorted(events, key=lambda item: item["timestamp"], reverse=True)[:200]
+
+
+async def _starline_history(
+    hass: HomeAssistant,
+    device_id: str,
+    hours: int,
+    force: bool,
+) -> dict[str, Any]:
+    cache = _history_domain_data(hass).setdefault(_DATA_HISTORY_CACHE, {})
+    cache_key = f"{device_id}:{hours}"
+
+    async with _history_lock(hass, cache_key):
+        now_monotonic = time.monotonic()
+        cached = cache.get(cache_key)
+        if isinstance(cached, dict):
+            age = now_monotonic - float(cached.get("loaded_at", 0))
+            cache_limit = HISTORY_FORCE_REFRESH_SECONDS if force else HISTORY_CACHE_SECONDS
+            if age < cache_limit:
+                return {**cached["payload"], "cached": True}
+
+        _consume_history_budget(hass)
+        period_end = int(time.time())
+        period_start = period_end - hours * 3600
+        rows, descriptions = await asyncio.gather(
+            _read_starline_event_rows(hass, device_id, period_start, period_end),
+            _event_descriptions(hass),
+        )
+        payload = {
+            "source": "starline_open_api",
+            "time_semantics": "starline_event_time",
+            "events": _normalize_starline_events(
+                rows, descriptions, period_start, period_end
+            ),
+            "cached": False,
+        }
+        cache[cache_key] = {"loaded_at": time.monotonic(), "payload": payload}
+        return payload
+
+
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/panel/bootstrap", vol.Optional("entry_id"): str})
 @callback
 def websocket_panel_bootstrap(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
@@ -86,10 +271,47 @@ def websocket_panel_bootstrap(hass: HomeAssistant, connection: websocket_api.Act
     connection.send_result(msg["id"], _bootstrap_payload(hass, entry))
 
 
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/panel/history",
+        vol.Required("device_id"): vol.All(vol.Coerce(str), vol.Match(r"^\d+$")),
+        vol.Optional("hours", default=24): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=24)
+        ),
+        vol.Optional("force", default=False): bool,
+    }
+)
+@websocket_api.async_response
+async def websocket_panel_history(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    device_id = msg["device_id"]
+    known_devices = {
+        str(item["device_id"]) for item in _discover_vehicle_entities(hass)
+    }
+    if device_id not in known_devices:
+        connection.send_error(msg["id"], "not_found", "StarLine vehicle was not found")
+        return
+    try:
+        payload = await _starline_history(
+            hass,
+            device_id,
+            msg["hours"],
+            msg["force"],
+        )
+    except StarLineApiError as err:
+        connection.send_error(msg["id"], "history_unavailable", str(err))
+        return
+    connection.send_result(msg["id"], payload)
+
+
 async def async_register_native_panel(hass: HomeAssistant, entry: ConfigEntry) -> None:
     domain_data = hass.data.setdefault(DOMAIN, {})
     if not domain_data.get(_DATA_WS_REGISTERED):
         websocket_api.async_register_command(hass, websocket_panel_bootstrap)
+        websocket_api.async_register_command(hass, websocket_panel_history)
         domain_data[_DATA_WS_REGISTERED] = True
     if not domain_data.get(_DATA_STATIC_REGISTERED):
         frontend_dir = Path(__file__).parent / "frontend"

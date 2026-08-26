@@ -10,24 +10,26 @@ The bridge resolves entities from the Home Assistant entity registry by stable S
 
 When standalone telemetry becomes available, integration-owned roles (`{device_id}_{role}`) take precedence role-by-role. The panel layout does not change.
 
-## UI v0.2 information architecture
+## UI v0.5 information architecture
 
 The functional reference is the native StarLine mobile application, while colors, geometry and navigation remain aligned with the NikaS Home Assistant panel language.
 
-1. **Состояние** — vehicle selector and online state, compact GPS/GSM/battery/fuel/temperature/mileage telemetry, vehicle mnemonic, perimeter/security/engine state, latest significant event and current map.
-2. **История** — a StarLine-oriented event timeline built from the Home Assistant Recorder history API. It does not call the StarLine event-history cloud API.
+1. **Сводка** — simultaneous state of both vehicles, compact GPS/GSM/battery/fuel/temperature telemetry, perimeter/security/engine state and the latest significant event.
+2. **История** — the official read-only StarLine event journal when a usable session exists, with confirmed Home Assistant Recorder transitions as fallback.
 3. **Поездки** — movement history derived from recorded `device_tracker` coordinates. Home Assistant's native Map card renders the 72-hour path; trip cards estimate travelled distance from recorded GPS points.
 4. **Диагностика** — source, freshness, entity availability, Recorder cache and entity bindings.
 
-## Recorder use
+## History and Recorder use
 
-History and trips are local Home Assistant reads:
+History prefers the official `POST /json/v2/device/{device_id}/events` read-only journal so event timestamps and official descriptions match StarLine. The request is cached, throttled and limited by a separate 150-request/day panel budget.
+
+Recorder remains the fallback and the trip source:
 
 - events: `/api/history/period` over 24 hours for security/perimeter/engine-related entities;
 - trips: `/api/history/period` over 72 hours for the StarLine `device_tracker`;
 - current and historical maps: Home Assistant's own `hui-map-card`.
 
-This does not consume StarLine Open API quota beyond whatever the active source integration already uses.
+The UI identifies whether a row time is the StarLine source timestamp or the later Home Assistant detection timestamp.
 
 ## Safety boundary
 

@@ -19,6 +19,7 @@ jobs:
           for file in custom_components/starline_telemetry/frontend/*.js; do
             node --check "$file"
           done
+          node tests/test_frontend_bundle.cjs
       - name: Check panel assets
         run: |
           python - <<'PY'
