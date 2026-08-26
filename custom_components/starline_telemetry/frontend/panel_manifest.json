@@ -1,6 +1,28 @@
 {
   "panel": "starline",
-  "version": "0.4.2",
+  "route": "/starline",
+  "version": "0.4.3",
+  "entry_module": "starline-app-v014.js",
+  "web_component": "starline-app-panel-v014",
+  "home_assistant_menu_event": "hass-toggle-menu",
+  "zoom": {
+    "engine": "transform",
+    "state": [
+      "scale",
+      "x",
+      "y"
+    ],
+    "target": "workspace_only",
+    "min_percent": 75,
+    "max_percent": 200,
+    "controls": "gesture_only",
+    "reset": "two_finger_double_tap",
+    "snap_percent_range": [
+      97,
+      103
+    ],
+    "feedback": "Масштаб 100%"
+  },
   "assets": [
     "assets/starline-bg-130-v2.webp",
     "assets/starline-bg-683-v2.webp",
