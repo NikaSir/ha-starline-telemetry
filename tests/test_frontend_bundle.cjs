@@ -8,20 +8,27 @@ const bundle = fs.readFileSync("custom_components/starline_telemetry/frontend/st
 const source = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v016.js", "utf8");
 const visualSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v017.js", "utf8");
 const sceneSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v018.js", "utf8");
+const stableSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v019.js", "utf8");
 
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
-assert.equal(manifest.version, "0.5.3");
+assert.equal(manifest.version, "0.5.4");
 assert.equal(manifest.zoom.native_vertical_scroll_at_or_below_percent, 100);
 assert.equal(manifest.zoom.one_finger_pan, "above_100_percent_on_overflowing_axes_only");
 assert.deepEqual(manifest.typography.floors_px, {
-  compact_label: 11,
+  compact_label: 12,
   standard_secondary_text: 12,
   summary_value: 14,
   view_title: 21,
   history_date_and_time: 16,
   history_action: 18,
 });
+assert.equal(manifest.typography.meaningful_min_px, 12);
+assert.equal(manifest.typography.meaningful_max_px, 25);
+assert.equal(manifest.rendering.stable_dom, true);
+assert.equal(manifest.rendering.routine_shadow_root_replacement, false);
+assert.equal(manifest.rendering.view_cache, "lazy_reuse_same_subtree");
+assert.equal(manifest.connection_freshness_indicator.enabled, false);
 assert.deepEqual(manifest.summary.operational_order, [
   "engine_running",
   "last_event",
@@ -88,6 +95,25 @@ assert.match(sceneSource, /\.summary-security\.alarm[\s\S]*var\(--danger\)/);
 assert.doesNotMatch(sceneSource, /font-size:/, "scene pass must preserve typography floors");
 assert.doesNotMatch(sceneSource, /_eventsFromHistory|_starLineEvents|panel\/history/, "scene pass must not change history or statistics");
 assert.match(bundle, /starline-app-panel-v018/);
+assert.match(bundle, /starline-app-panel-v019/);
+
+assert.match(stableSource, /set hass\(value\)[\s\S]*_queueStableRender\(\)/);
+assert.match(stableSource, /window\.requestAnimationFrame\(render\)/);
+assert.match(stableSource, /_stableViewCache = new Map\(\)/);
+assert.match(stableSource, /canvas\.replaceChildren\(nextShell\)/);
+assert.match(stableSource, /morphStableChildren\(shell, template\.content\)/);
+assert.match(stableSource, /_preserveEmbeddedMaps\(shell\)/);
+assert.match(stableSource, /card\.hass = this\._hass/);
+assert.match(stableSource, /if \(!this\.shadowRoot\?\.querySelector\("\.app"\)\)/);
+assert.doesNotMatch(stableSource, /shadowRoot\.innerHTML\s*=/, "routine renderer must not replace the panel shell");
+assert.match(stableSource, /height:100dvh !important/);
+assert.match(stableSource, /\.nika-title strong \{ font-size:23px/);
+assert.match(stableSource, /\.nika-title span \{ font-size:14px/);
+assert.match(stableSource, /@media\(max-width:420px\)[\s\S]*font-size:21px[\s\S]*font-size:13px/);
+assert.match(stableSource, /\.summary-identity strong \{ font-size:25px/);
+assert.match(stableSource, /\.route-svg text \{ font-size:9px/);
+assert.match(stableSource, /this\._view !== "status"/);
+assert.match(stableSource, /customElements\.define\("starline-app-panel", class extends StarLineAppPanelV019/);
 
 process.env.TZ = "Europe/Moscow";
 const registry = new Map();
@@ -163,21 +189,6 @@ assert.match(instance._summarySecurity({}), /<strong>Тревога<\/strong>/);
 instance._entity = originalEntity;
 instance._isLocked = originalIsLocked;
 instance._isOn = originalIsOn;
-
-let fixedSwitcherQueries = 0;
-instance.shadowRoot = {
-  querySelector() {
-    fixedSwitcherQueries += 1;
-    return null;
-  },
-};
-instance._orderedVehicles = () => [];
-instance._view = "status";
-instance._installFixedVehicleSwitcher();
-assert.equal(fixedSwitcherQueries, 0, "Summary must not attempt to install a vehicle switcher");
-instance._view = "history";
-instance._installFixedVehicleSwitcher();
-assert.equal(fixedSwitcherQueries, 1, "single-vehicle views must retain the vehicle switcher path");
 
 const iso = (hour, minute, second) => new Date(Date.UTC(2026, 7, 26, hour, minute, second)).toISOString();
 const vehicle = {

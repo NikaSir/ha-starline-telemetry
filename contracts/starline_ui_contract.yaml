@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: 0.5.3
+version: 0.5.4
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
 repository_policy: self_contained
@@ -119,8 +119,11 @@ typography:
   smaller_than_reference: forbidden
   responsive_reduction_below_reference: forbidden
   applies_to: all_panel_views
+  meaningful_min_px: 12
+  meaningful_max_px: 25
+  schematic_exception_px: [9, 10]
   implementation_floors_px:
-    compact_label: 11
+    compact_label: 12
     standard_secondary_text: 12
     summary_value: 14
     view_title: 21
@@ -134,13 +137,28 @@ shell:
     control_size_px: 44
     control_radius_px: 16
     icon_size_px: 25
-    title_px: 21
-    subtitle_px: 12
+    title_px: 23
+    subtitle_px: 14
+    narrow_title_px: 21
+    narrow_subtitle_px: 13
   bottom_navigation:
     fixed_outside_zoom_viewport: true
     minimum_target_height_px: 52
     icon_size_px: 28
     label_size_px: 12
+
+rendering:
+  stable_dom: true
+  routine_shadow_root_replacement: forbidden
+  telemetry_updates: animation_frame_coalesced_point_patch
+  tabs_and_vehicle_views: lazy_cached_subtrees
+  persistent_layers: [header, peer_selector, zoom_viewport, work_canvas, bottom_navigation]
+  background_remount_during_scroll_or_poll: forbidden
+
+connection_freshness_indicator:
+  enabled: false
+  policy: explicit_request_only
+  reason: not_requested_for_starline
 
 history:
   window_hours: 24

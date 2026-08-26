@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "home_assistant_menu_event": "hass-toggle-menu",
@@ -38,8 +38,14 @@
     "reference": "official_starline_mobile_app",
     "minimum": "not_smaller_than_corresponding_reference_text",
     "responsive_reduction_below_reference": false,
+    "meaningful_min_px": 12,
+    "meaningful_max_px": 25,
+    "schematic_exception_px": [
+      9,
+      10
+    ],
     "floors_px": {
-      "compact_label": 11,
+      "compact_label": 12,
       "standard_secondary_text": 12,
       "summary_value": 14,
       "view_title": 21,
@@ -54,14 +60,33 @@
       "control_size_px": 44,
       "control_radius_px": 16,
       "icon_size_px": 25,
-      "title_px": 21,
-      "subtitle_px": 12
+      "title_px": 23,
+      "subtitle_px": 14,
+      "narrow_title_px": 21,
+      "narrow_subtitle_px": 13
     },
     "bottom_navigation": {
       "minimum_target_height_px": 52,
       "icon_size_px": 28,
       "label_size_px": 12
     }
+  },
+  "rendering": {
+    "stable_dom": true,
+    "routine_shadow_root_replacement": false,
+    "telemetry_updates": "animation_frame_coalesced_point_patch",
+    "view_cache": "lazy_reuse_same_subtree",
+    "persistent_layers": [
+      "header",
+      "peer_selector",
+      "zoom_viewport",
+      "work_canvas",
+      "bottom_navigation"
+    ]
+  },
+  "connection_freshness_indicator": {
+    "enabled": false,
+    "reason": "not_requested_for_starline"
   },
   "summary": {
     "vehicle_switcher": "hidden",

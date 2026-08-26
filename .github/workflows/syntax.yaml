@@ -19,6 +19,8 @@ jobs:
           for file in custom_components/starline_telemetry/frontend/*.js; do
             node --check "$file"
           done
+          python scripts/build_frontend_bundle.py
+          git diff --exit-code -- custom_components/starline_telemetry/frontend/starline-app.js
           node tests/test_frontend_bundle.cjs
       - name: Check panel assets
         run: |
@@ -30,5 +32,8 @@ jobs:
           missing = [asset for asset in manifest['assets'] if not (root / asset).is_file()]
           if missing:
               raise SystemExit('Missing panel assets: ' + ', '.join(missing))
+          brand = Path('custom_components/starline_telemetry/brand/icon.png')
+          if not brand.is_file() or brand.stat().st_size == 0:
+              raise SystemExit('Missing packaged integration brand/icon.png')
           print(f"Validated {len(manifest['assets'])} panel assets")
           PY
