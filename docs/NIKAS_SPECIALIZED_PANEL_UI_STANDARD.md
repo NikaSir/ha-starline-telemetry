@@ -1,4 +1,4 @@
-# NikaS Specialized Panel UI Standard v1.6
+# NikaS Specialized Panel UI Standard v1.7
 
 **Status:** REQUIRED
 **Canonical source:** `NikaSir/ha-contract-generated-ui`
@@ -39,7 +39,20 @@ BOTTOM TAB BAR                              native scale
 - Menu and refresh are visually identical plaques: `44px × 44px`, `16px` radius, `1px` divider border, `var(--card-background-color)` background, subtle `0 7px 20px rgba(23,45,76,.08)` shadow and a `25px` `ha-icon` glyph.
 - Menu glyph uses `var(--primary-text-color)`; refresh uses `var(--primary-color)`.
 - A transparent refresh rail is non-conforming.
-- Back, an integration drawer, a device command or a decorative brand icon is prohibited in the permanent left rail. Parent navigation belongs inside the work area.
+- Back, an integration drawer, a device command or a decorative brand icon is prohibited in the permanent left rail.
+
+### Center title plaque — return to the source NikaS base panel
+
+- The geometrically centered two-line title is a persistent clickable plaque and the sole standard return control from a specialized panel to the NikaS base interface.
+- The first line is the current specialized-panel name. The second line is the interface version in the exact form `UI vX.Y.Z`.
+- The whole plaque is one semantic `button` with a minimum `44px` touch height. It has a visible plaque surface, focus state and pressed response, while retaining geometric centering between the side rails.
+- An arrow, chevron, a separate `Назад` label and `history.back()` are prohibited.
+- When a specialized panel is opened from `/dashboard-house`, `/dashboard-actions` or `/dashboard-infrastructure`, it returns to that same base panel. A permitted sub-route may be normalized to the configured canonical route of its base panel.
+- The base shell records the source route before or while opening the specialized panel. The common one-shot hand-off key is `sessionStorage["nikas.specialized.source_route.v1"]`; `return_to` or `from` query parameters may be used as an explicit hand-off.
+- The specialized panel captures and validates the route once, persists its accepted route for that panel/client, and does not recalculate it during telemetry updates. Only same-origin routes rooted at the three allowed NikaS base dashboards are accepted.
+- Capture precedence is: explicit `return_to`/`from`, one-shot session hand-off, saved route for that specialized panel, safe same-origin referrer, configured `parent_route`, then the repository-defined safe base-panel fallback.
+- Navigation is explicit Home Assistant navigation: `history.pushState()` followed by a `location-changed` event. Browser history is never the routing contract.
+- The title plaque, its accepted route and its click handler are mounted with the fixed Header and survive tab switches, polling, loss/recovery and every state-only patch.
 
 ## 3. Peer-device selector
 
@@ -163,7 +176,9 @@ Repository tests or static checks must verify:
 10. meaningful typography stays within `12–25px`, subject only to the documented schematic exception;
 11. routine telemetry cannot replace the shell, viewport, canvas, background or Bottom Tab Bar;
 12. an optional connection indicator, when requested, uses the canonical transport/freshness vocabulary and status-tinted plaque;
-13. JavaScript syntax, package validation, HACS and Hassfest pass.
+13. the center title is a two-line `44px`+ semantic button, contains no arrow or separate Back label and retains geometric centering;
+14. source-route capture accepts only the three NikaS base dashboard roots, uses the common session hand-off, performs explicit HA navigation and contains no `history.back()`;
+15. JavaScript syntax, package validation, HACS and Hassfest pass.
 
 Each repository also maintains `docs/NIKAS_SPECIALIZED_PANEL_COMPLIANCE.md` (or an equivalent explicit record). Unimplemented runtime behavior is recorded as `GAP`, never assumed to pass from documentation alone.
 
@@ -177,6 +192,7 @@ Each repository also maintains `docs/NIKAS_SPECIALIZED_PANEL_COMPLIANCE.md` (or 
 - card activation does not become accidental pan;
 - Header, selector and Bottom Tab Bar remain stationary at every scale;
 - both Header buttons are visible matching plaques below Dynamic Island;
+- the centered title plaque shows the panel name and exact `UI vX.Y.Z`, returns to each of the three originating NikaS base panels and uses the configured safe fallback after a direct open;
 - Bottom icons and labels match the Stark SolarPower visual scale;
 - integration/repository icon is present and recognizable in installed/distribution surfaces.
 - repeated telemetry, indicator transitions, tab changes and upward/downward scroll produce no full-screen flash or white frame;
@@ -185,6 +201,7 @@ Each repository also maintains `docs/NIKAS_SPECIALIZED_PANEL_COMPLIANCE.md` (or 
 - at least ten consecutive tab switches produce no blank frame, lost map/image or duplicated viewport;
 - loss/recovery changes telemetry and any enabled indicator in place; preserved samples are visibly stale;
 - `Дом сейчас` and StarLine contain no unrequested two-level connection indicator.
+- repeated telemetry and tab changes do not change the captured Header return destination or replace its click handler.
 
 ## 13. Publication
 

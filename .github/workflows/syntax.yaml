@@ -37,3 +37,5 @@ jobs:
               raise SystemExit('Missing packaged integration brand/icon.png')
           print(f"Validated {len(manifest['assets'])} panel assets")
           PY
+      - name: Enforce NikaS UI standard v1.7
+        run: python scripts/check_nikas_ui_standard.py

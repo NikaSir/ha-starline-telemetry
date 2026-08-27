@@ -2,6 +2,44 @@ import "./starline-app-v018.js?v=0.5.3-summary-scene-security";
 
 const BASE_COMPONENT = customElements.get("starline-app-panel-v018");
 const UI_VERSION = "0.5.4";
+const SOURCE_ROUTE_KEY = "nikas.specialized.source_route.v1";
+const RETURN_ROUTE_KEY = "nikas.starline.return_route.v1";
+const SAFE_DEFAULT_ROUTE = "/dashboard-house";
+const SAFE_ROUTE_PREFIXES = ["/dashboard-house", "/dashboard-actions", "/dashboard-infrastructure"];
+
+function safeReturnRoute(value) {
+  if (!value) return null;
+  try {
+    const url = new URL(decodeURIComponent(String(value).trim()), window.location.origin);
+    if (url.origin !== window.location.origin) return null;
+    const allowed = SAFE_ROUTE_PREFIXES.some((prefix) => url.pathname === prefix || url.pathname.startsWith(`${prefix}/`));
+    return allowed ? `${url.pathname}${url.search}${url.hash}` : null;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function resolveReturnRoute(panel) {
+  const current = new URL(window.location.href);
+  const explicit = safeReturnRoute(current.searchParams.get("return_to") || current.searchParams.get("from"));
+  let handedOff = null;
+  let saved = null;
+  try {
+    handedOff = safeReturnRoute(sessionStorage.getItem(SOURCE_ROUTE_KEY));
+    sessionStorage.removeItem(SOURCE_ROUTE_KEY);
+    saved = safeReturnRoute(sessionStorage.getItem(RETURN_ROUTE_KEY));
+  } catch (_error) {}
+  const configured = safeReturnRoute(panel?._panel?.config?.parent_route || panel?._panel?.config?.parent_path);
+  const route = explicit || handedOff || saved || safeReturnRoute(document.referrer) || configured || SAFE_DEFAULT_ROUTE;
+  try { sessionStorage.setItem(RETURN_ROUTE_KEY, route); } catch (_error) {}
+  return route;
+}
+
+function navigateToSource(route) {
+  const target = safeReturnRoute(route) || SAFE_DEFAULT_ROUTE;
+  window.history.pushState(null, "", target);
+  window.dispatchEvent(new Event("location-changed"));
+}
 
 function sameStableNode(current, next) {
   return current?.nodeType === next?.nodeType
@@ -62,6 +100,7 @@ class StarLineAppPanelV019 extends BASE_COMPONENT {
     this._activeStableViewKey = null;
     this._stableRenderHandle = null;
     this._stableRenderUsesAnimationFrame = false;
+    this._returnRoute = null;
   }
 
   set hass(value) {
@@ -330,10 +369,25 @@ class StarLineAppPanelV019 extends BASE_COMPONENT {
 
   _installCommonHeader() {
     super._installCommonHeader();
-    const title = this.shadowRoot?.querySelector(".nika-title strong");
-    const subtitle = this.shadowRoot?.querySelector(".nika-title span");
+    let plaque = this.shadowRoot?.querySelector(".nika-title");
+    if (plaque && plaque.localName !== "button") {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "nika-title";
+      button.setAttribute("aria-label", "Вернуться в базовую панель NikaS");
+      button.innerHTML = plaque.innerHTML;
+      plaque.replaceWith(button);
+      plaque = button;
+    }
+    if (!this._returnRoute) this._returnRoute = resolveReturnRoute(this);
+    if (plaque && !plaque.dataset.returnBound) {
+      plaque.dataset.returnBound = "true";
+      plaque.addEventListener("click", () => navigateToSource(this._returnRoute));
+    }
+    const title = plaque?.querySelector("strong");
+    const subtitle = plaque?.querySelector("span");
     if (title) title.textContent = "StarLine";
-    if (subtitle) subtitle.textContent = `Автомобили · UI v${UI_VERSION}`;
+    if (subtitle) subtitle.textContent = `UI v${UI_VERSION}`;
   }
 
   _installV019Styles() {
@@ -364,6 +418,8 @@ class StarLineAppPanelV019 extends BASE_COMPONENT {
 
       .nika-title strong { font-size:23px !important; line-height:1.05 !important; font-weight:800 !important; }
       .nika-title span { font-size:14px !important; line-height:1.1 !important; font-weight:560 !important; }
+      .nika-title { min-height:44px !important; padding:5px 14px !important; border:1px solid var(--divider-color,var(--border)) !important; border-radius:16px !important; background:var(--card-background-color,var(--surface)) !important; color:var(--primary-text-color) !important; box-shadow:0 4px 14px rgba(23,45,76,.06) !important; font:inherit !important; cursor:pointer !important; }
+      .nika-title:active { transform:scale(.985); }
 
       .notice,.vehicle-menu span,.telemetry-chip span,.freshness,
       .vehicle-caption span,.last-event>span:not(.event-date),.last-event>strong,

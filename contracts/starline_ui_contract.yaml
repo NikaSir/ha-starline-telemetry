@@ -1,5 +1,6 @@
 contract: starline_telemetry_dashboard
 version: 0.5.4
+ui_standard: "1.7"
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
 repository_policy: self_contained
@@ -132,6 +133,9 @@ typography:
 
 shell:
   header:
+    center_action: return_to_source_base_panel
+    source_route_handoff_key: nikas.specialized.source_route.v1
+    browser_history_back_allowed: false
     columns: ["52px", "minmax(0,1fr)", "52px"]
     phone_min_height_px: 60
     control_size_px: 44

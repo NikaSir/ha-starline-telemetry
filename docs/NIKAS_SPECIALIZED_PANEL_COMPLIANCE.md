@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.5.4 and NikaS UI standard v1.6. Automated checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.5.4 and NikaS UI standard v1.7. Automated checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -34,7 +34,7 @@ Audit target: UI/integration 0.5.4 and NikaS UI standard v1.6. Automated checks 
 3. Confirm focal pinch, axis locks, long press, `more-info`, reset toast and safe areas on device.
 4. Leave the panel open through repeated telemetry polls and move between cached tabs; confirm there is no white flash, image remount or map reload.
 
-## v0.5.4 UI standard v1.6 delta
+## v0.5.4 UI standard v1.7 delta
 
 - v019 extends the current v0.5.3 Summary/scene/security implementation; none of those visual or alarm-state fixes are reverted.
 - Header, optional vehicle selector, one viewport/canvas and Bottom Tab Bar remain mounted while routine telemetry patches the existing active work subtree.

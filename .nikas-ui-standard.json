@@ -1,0 +1,7 @@
+{
+  "version": "1.7",
+  "standard_path": "docs/NIKAS_SPECIALIZED_PANEL_UI_STANDARD.md",
+  "standard_sha256": "22c0cec7fa61b8210fc40e3f053242335f8e502984cbb8a4fb93c33a93bd3706",
+  "role": "specialized",
+  "runtime_files": ["custom_components/starline_telemetry/frontend/starline-app-v019.js"]
+}

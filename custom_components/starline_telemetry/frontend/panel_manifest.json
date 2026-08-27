@@ -2,6 +2,7 @@
   "panel": "starline",
   "route": "/starline",
   "version": "0.5.4",
+  "ui_standard": "1.7",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "home_assistant_menu_event": "hass-toggle-menu",
@@ -55,6 +56,9 @@
   },
   "shell": {
     "header": {
+      "center_action": "return_to_source_base_panel",
+      "source_route_handoff_key": "nikas.specialized.source_route.v1",
+      "browser_history_back_allowed": false,
       "columns": "52px minmax(0,1fr) 52px",
       "phone_min_height_px": 60,
       "control_size_px": 44,
