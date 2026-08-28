@@ -1,9 +1,10 @@
 contract: starline_telemetry_dashboard
-version: 0.5.10
+version: 0.6.0
+ui_standard: 1.7
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
 repository_policy: self_contained
-parent: house.vehicles
+parent: /dashboard-house
 panel_path: /starline
 
 rules:
@@ -17,6 +18,10 @@ rules:
   trips_source: device_tracker_history
   external_starline_history_calls: read_only_quota_limited
   external_ui_repository_dependency: forbidden
+  stable_shell_mount: once
+  telemetry_rendering: point_patch_in_animation_frame
+  historical_runtime_inheritance: forbidden
+  originating_route_capture: safe_base_routes_only
 
 assets:
   local_only: true
@@ -146,13 +151,31 @@ shell:
     control_size_px: 44
     control_radius_px: 16
     icon_size_px: 25
-    title_px: 21
-    subtitle_px: 12
+    title_px: 23
+    subtitle_px: 14
+    title_action: return_to_originating_base_panel
   bottom_navigation:
     fixed_outside_zoom_viewport: true
     minimum_target_height_px: 52
     icon_size_px: 28
     label_size_px: 12
+  work_viewport:
+    count: 1
+    only_scroll_surface: true
+    shell_scroll_chaining: forbidden
+
+rendering:
+  production_component: single_autonomous_runtime
+  shell_inner_html_after_mount: forbidden
+  telemetry_patch_frame: requestAnimationFrame
+  cached_views: lazy_and_reused
+  unchanged_image_src_assignment: forbidden
+  map_cards: stable_per_vehicle_view
+
+navigation:
+  allowed_base_routes: [/dashboard-house, /dashboard-actions, /dashboard-infrastructure]
+  title_uses_history_back: false
+  title_uses_push_state_and_location_changed: true
 
 history:
   window_hours: 24
