@@ -3812,7 +3812,9 @@ function safeReturnRoute(value) {
 
 function resolveReturnRoute(panel) {
   const current = new URL(window.location.href);
-  const explicit = safeReturnRoute(current.searchParams.get("return_to") || current.searchParams.get("from"));
+  const explicit = ["return_to", "from"]
+    .map((key) => safeReturnRoute(current.searchParams.get(key)))
+    .find(Boolean) || null;
   let handedOff = null;
   let saved = null;
   try {
@@ -4211,6 +4213,7 @@ class StarLineAppPanelV019 extends BASE_COMPONENT {
       .nika-title span { font-size:14px !important; line-height:1.1 !important; font-weight:560 !important; }
       .nika-title { min-height:44px !important; padding:5px 14px !important; border:1px solid var(--divider-color,var(--border)) !important; border-radius:16px !important; background:var(--card-background-color,var(--surface)) !important; color:var(--primary-text-color) !important; box-shadow:0 4px 14px rgba(23,45,76,.06) !important; font:inherit !important; cursor:pointer !important; }
       .nika-title:active { transform:scale(.985); }
+      .nika-title:focus-visible { outline:2px solid var(--primary-color,var(--accent)); outline-offset:2px; }
 
       .notice,.vehicle-menu span,.telemetry-chip span,.freshness,
       .vehicle-caption span,.last-event>span:not(.event-date),.last-event>strong,

@@ -13,6 +13,7 @@ Audit target: UI/integration 0.5.4 and NikaS UI standard v1.7. Automated checks 
 | Interaction guard for pinch/pan | PASS | 100% leaves native pan/taps alone; two-finger pinch and enlarged pan retain pointer-cancel and post-gesture click guards. |
 | Menu and refresh use `ha-icon`; menu emits `hass-toggle-menu` | PASS | Base panel uses `mdi:menu`/`mdi:refresh`; menu dispatch is bubbling/composed. v008 installs the common mobile Header. |
 | Header UPS geometry and matching plaques | PASS | Final cascade sets 52/48 rails, 62/60 height, 44px bordered card plaques, radius 16, icons 25 and 23/14 title typography (21/13 narrow). |
+| Center title source return | PASS | v019 upgrades the stable center plaque to one semantic `StarLine / UI v0.5.4` button with focus/pressed states, validated first-valid route precedence and explicit HA navigation. CI checks the built production `starline-app.js`, not only a source layer. |
 | Refresh on a matching right plaque | PASS | `.nika-refresh` uses the same card plaque as menu and `var(--primary-color)`. |
 | Fixed full-width safe-area Bottom Tab Bar using `ha-icon` | PASS | Base `nav` is edge-attached, outside `#content`, includes safe-area bottom padding, divider/shadow and uses MDI `ha-icon`. |
 | Bottom target/icon/label/active geometry | PASS | Final cascade enforces ≥52px targets, 28px icons, 12px/700 labels and 11% active fill. |

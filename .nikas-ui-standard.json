@@ -1,7 +1,16 @@
 {
   "version": "1.7",
   "standard_path": "docs/NIKAS_SPECIALIZED_PANEL_UI_STANDARD.md",
-  "standard_sha256": "22c0cec7fa61b8210fc40e3f053242335f8e502984cbb8a4fb93c33a93bd3706",
+  "standard_sha256": "17afc8ea93b07a4362c45e5e9d5f6504158e70a9c19328a545403a92f1e08a8c",
   "role": "specialized",
-  "runtime_files": ["custom_components/starline_telemetry/frontend/starline-app-v019.js"]
+  "runtime_files": ["custom_components/starline_telemetry/frontend/starline-app.js"],
+  "production_entrypoint": "custom_components/starline_telemetry/frontend/starline-app.js",
+  "header_return": {
+    "button_marker": "className = \"nika-title\"",
+    "version_marker": "subtitle.textContent = `UI v${UI_VERSION}`",
+    "focus_marker": ".nika-title:focus-visible",
+    "pressed_marker": ".nika-title:active",
+    "explicit_precedence_marker": "[\"return_to\", \"from\"]",
+    "capture_once_marker": "if (!this._returnRoute) this._returnRoute = resolveReturnRoute(this)"
+  }
 }
