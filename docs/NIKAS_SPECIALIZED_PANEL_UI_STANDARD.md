@@ -92,3 +92,14 @@ This synchronized implementation snapshot replaces every older local rule that p
 - Required phone checks: native scrolling on long diagnostics; no horizontal or vertical transform movement at 100%; no pullable blank field; axis-specific pan only above 100%; clamp after release and resize; stable focal pinch; taps do not become pans; tab change returns to top; Header and Bottom Tab Bar stay fixed; `hass-toggle-menu`, refresh plaque, safe areas, integration icon and README identity are correct.
 
 > Newer canonical standards in `ha-contract-generated-ui` override this synchronized local snapshot.
+
+## LIDER central title plaque reference
+
+The centered two-line Header title plaque uses the LIDER reference geometry and tone:
+
+- `justify-self:center`; `min-width:min(290px,100%)`; `max-width:100%`; `min-height:44px`; `padding:5px 14px`;
+- on narrow phones: `min-width:0; width:100%; padding-inline:8px`;
+- `1px` border with primary-color mix `24%`; `16px` radius; primary-color background mix `5%`; `0 5px 16px rgba(23,45,76,.06)` shadow;
+- pressed: background mix `13%`, border mix `42%`, `0 2px 7px rgba(23,45,76,.05)`; focus-visible: `2px` primary outline and `2px` offset.
+
+A transparent/plain-text title, a white-only local variant, or an integration-specific color is not conforming.
