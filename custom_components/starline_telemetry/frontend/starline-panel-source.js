@@ -1,4 +1,4 @@
-const UI_VERSION = "0.6.4";
+const UI_VERSION = "0.6.5";
 const ASSET_BASE = "/starline_telemetry_static/assets";
 const EVENT_WINDOW_HOURS = 24;
 const TRIP_WINDOW_HOURS = 72;
@@ -19,6 +19,7 @@ const CAR_REFERENCE_VISIBLE_SIZE = Object.freeze({
   "hood-open": Object.freeze([1692, 825]),
   "trunk-open": Object.freeze([1599, 820]),
 });
+const CAR_LANDMARK_HEIGHT_SCALE = Object.freeze({ "130": 1.04, "683": 1 });
 const CAR_ASSET_GEOMETRY = Object.freeze({
   "130": Object.freeze({
     default: [1774, 887, 48, 100, 1702, 785],
@@ -392,7 +393,7 @@ class StarLineAppPanel extends HTMLElement {
       .summary-car-frame{position:absolute;z-index:3;left:50%;bottom:${CAR_WHEEL_LINE_BOTTOM_PX}px;width:${CAR_VISIBLE_WIDTH_PERCENT}%;aspect-ratio:var(--car-visible-aspect);transform:translateX(-50%);visibility:hidden;pointer-events:none}.summary-car-frame.geometry-ready{visibility:visible}.summary-car{position:absolute;left:var(--car-image-left);top:var(--car-image-top);width:var(--car-image-width);height:var(--car-image-height);filter:drop-shadow(0 14px 11px #0000003b);pointer-events:none}.summary-card.offline .summary-bg,.summary-card.offline .summary-car{filter:grayscale(.55) saturate(.58)}
       .connection{position:absolute;z-index:7;left:10px;bottom:86px;min-height:56px;max-width:47%;display:grid;grid-template-columns:27px minmax(0,1fr);align-items:center;gap:7px;padding:7px 10px;border:1px solid #ffffffef;border-radius:16px;background:#ffffffea;backdrop-filter:blur(8px);box-shadow:0 2px 10px #00000018;text-align:left}.connection ha-icon,.metric ha-icon{color:var(--blue);--mdc-icon-size:24px}.connection strong{display:block;margin-top:4px;font-size:15px;line-height:1.05;white-space:nowrap}
       .metrics{position:absolute;z-index:7;left:10px;right:10px;bottom:9px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.metric{min-width:0;min-height:67px;display:grid;grid-template-columns:22px minmax(0,1fr);align-items:center;gap:4px;padding:7px 5px;border:1px solid #ffffffef;border-radius:15px;background:#fffffff0;backdrop-filter:blur(8px);color:var(--primary-text-color);text-align:left}.metric ha-icon{--mdc-icon-size:22px}.metric strong{display:block;margin-top:4px;font-size:16px;line-height:1.05;font-weight:820;letter-spacing:-.15px;white-space:nowrap;overflow:visible;text-overflow:clip}
-      .state-row{height:74px;display:grid;align-items:center;background:var(--surface)}.state-row+.state-row{border-top:1px solid var(--border)}.perimeter-row{grid-template-columns:repeat(3,minmax(0,1fr))}.operational-row{grid-template-columns:minmax(0,1fr) minmax(0,1.35fr) minmax(0,.65fr)}.state,.event{min-width:0;height:74px;border:0;border-right:1px solid var(--border);background:transparent;color:var(--primary-text-color);display:grid;grid-template-columns:24px minmax(0,1fr);align-items:center;gap:5px;padding:6px 8px;text-align:left}.operational-row .state,.operational-row .event{gap:4px;padding-inline:6px}.operational-row .state>div,.operational-row .event>div{min-width:0;overflow:visible}.operational-row .state span,.operational-row .event span{white-space:nowrap;overflow:visible;text-overflow:clip}.state:last-child,.event:last-child{border-right:0}.state ha-icon,.event ha-icon{color:var(--muted);--mdc-icon-size:23px}.state strong,.event strong{display:-webkit-box;margin-top:4px;font-size:16px;line-height:1.05;font-weight:800;white-space:normal;overflow:hidden;text-overflow:clip;-webkit-box-orient:vertical;-webkit-line-clamp:2}.state.ok ha-icon,.state.ok strong{color:var(--ok)}.state.warn ha-icon,.state.warn strong{color:var(--warn)}.state.active ha-icon,.state.active strong,.event ha-icon{color:var(--accent)}.state.danger ha-icon,.state.danger strong{color:var(--danger)}
+      .state-row{height:74px;display:grid;align-items:center;background:var(--surface)}.state-row+.state-row{border-top:1px solid var(--border)}.perimeter-row{grid-template-columns:repeat(3,minmax(0,1fr))}.operational-row{grid-template-columns:minmax(0,40fr) minmax(0,38fr) minmax(0,22fr)}.state,.event{min-width:0;height:74px;border:0;border-right:1px solid var(--border);background:transparent;color:var(--primary-text-color);display:grid;grid-template-columns:24px minmax(0,1fr);align-items:center;gap:5px;padding:6px 8px;text-align:left}.operational-row .state,.operational-row .event{gap:3px;padding-inline:5px}.operational-row .state>div,.operational-row .event>div{min-width:0;overflow:visible}.operational-row .state span,.operational-row .event span{white-space:nowrap;overflow:visible;text-overflow:clip}.state:last-child,.event:last-child{border-right:0}.state ha-icon,.event ha-icon{color:var(--muted);--mdc-icon-size:23px}.state strong,.event strong{display:-webkit-box;margin-top:4px;font-size:16px;line-height:1.05;font-weight:800;white-space:normal;overflow:hidden;text-overflow:clip;-webkit-box-orient:vertical;-webkit-line-clamp:2}.operational-row .engine strong,.operational-row .brake strong{display:block;white-space:nowrap;overflow:visible;-webkit-line-clamp:unset}.state.ok ha-icon,.state.ok strong{color:var(--ok)}.state.warn ha-icon,.state.warn strong{color:var(--warn)}.state.active ha-icon,.state.active strong,.event ha-icon{color:var(--accent)}.state.danger ha-icon,.state.danger strong{color:var(--danger)}
       .view-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 2px 12px}.view-head strong{display:block;font-size:21px;line-height:1.05}.view-head span{display:block;margin-top:5px;color:var(--muted);font-size:13px}.view-head button{width:44px;height:44px;border:1px solid var(--border);border-radius:15px;background:var(--surface);color:var(--accent);display:grid;place-items:center}.history-day{margin-bottom:14px}.day-chip{display:inline-flex;margin:0 0 7px 5px;padding:5px 9px;border-radius:10px;background:color-mix(in srgb,var(--accent) 11%,var(--surface));font-size:16px;font-weight:800}.history-row{width:100%;min-height:62px;border:0;border-bottom:1px solid var(--border);background:var(--surface);color:var(--primary-text-color);display:grid;grid-template-columns:76px minmax(0,1fr);align-items:center;padding:8px 13px;text-align:left}.history-row:first-of-type{border-radius:16px 16px 0 0}.history-row:last-child{border-bottom:0;border-radius:0 0 16px 16px}.history-row time{color:var(--muted);font-size:16px}.history-row strong{font-size:18px;line-height:1.15}.source-note{margin:0 0 10px;padding:9px 12px;border-radius:13px;background:color-mix(in srgb,var(--accent) 7%,var(--surface));color:var(--muted);font-size:12px}
       .trip-list{display:grid;gap:10px}.trip-card{overflow:hidden;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.trip-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px}.trip-meta strong{font-size:19px}.trip-meta span{display:block;margin-top:4px;color:var(--muted);font-size:12px}.trip-times{display:flex;align-items:center;gap:5px}.trip-times ha-icon{--mdc-icon-size:18px;color:var(--accent)}.route-svg{display:block;width:100%;height:128px;color:var(--accent);background:color-mix(in srgb,var(--accent) 4%,var(--surface))}.route-svg text{fill:white;font-size:5px;font-weight:800}.route-marker{fill:var(--accent)}.trip-foot{display:flex;justify-content:space-between;padding:8px 12px;color:var(--muted);font-size:12px}.map-host{min-height:230px;margin-bottom:12px;overflow:hidden;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.map-host>*{display:block;width:100%;height:100%}
       .diagnostic-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.diag-tile{min-height:74px;padding:11px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}.diag-tile span{display:block;color:var(--muted);font-size:12px}.diag-tile strong{display:block;margin-top:7px;font-size:15px;overflow-wrap:anywhere}.diag-tile.ok strong{color:var(--ok)}.diag-tile.warn strong{color:var(--warn)}.diag-tile.danger strong{color:var(--danger)}.read-only-banner{display:grid;grid-template-columns:30px minmax(0,1fr);gap:9px;margin-top:10px;padding:12px;border-radius:16px;background:color-mix(in srgb,var(--accent) 9%,var(--surface))}.read-only-banner ha-icon{color:var(--accent)}.read-only-banner strong{font-size:15px}.read-only-banner span{display:block;margin-top:4px;color:var(--muted);font-size:12px;line-height:1.3}.diag-list{margin-top:10px;overflow:hidden;border:1px solid var(--border);border-radius:16px}.diag-entity{min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 11px;border-bottom:1px solid var(--border);background:var(--surface)}.diag-entity:last-child{border-bottom:0}.diag-entity strong{font-size:13px}.diag-entity span{display:block;margin-top:3px;color:var(--muted);font-size:12px;overflow-wrap:anywhere}.diag-state{text-align:right}.diag-state button{width:34px;height:34px;border:0;background:transparent;color:var(--accent)}
@@ -495,18 +496,19 @@ class StarLineAppPanel extends HTMLElement {
     };
     const state = states.hood ? "hood-open" : states.trunk ? "trunk-open" : states.door ? "door-open" : states.engine ? "engine" : "default";
     const suffix = state === "default" ? "v2" : `${state}-v1`;
-    return { id, state, geometry: CAR_ASSET_GEOMETRY[id][state], referenceSize: CAR_REFERENCE_VISIBLE_SIZE[state], src: `${ASSET_BASE}/starline-car-${id}-${suffix}.webp?v=${UI_VERSION}` };
+    return { id, state, geometry: CAR_ASSET_GEOMETRY[id][state], referenceSize: CAR_REFERENCE_VISIBLE_SIZE[state], landmarkHeightScale: CAR_LANDMARK_HEIGHT_SCALE[id], src: `${ASSET_BASE}/starline-car-${id}-${suffix}.webp?v=${UI_VERSION}` };
   }
 
-  _applyCarGeometry(frame, geometry, referenceSize) {
+  _applyCarGeometry(frame, geometry, referenceSize, landmarkHeightScale = 1) {
     if (!frame || !geometry) return;
     const [canvasWidth, canvasHeight, alphaLeft, alphaTop, alphaRight, alphaBottom] = geometry;
     const visibleWidth = alphaRight - alphaLeft;
     const visibleHeight = alphaBottom - alphaTop;
     const [referenceWidth, referenceHeight] = referenceSize || [visibleWidth, visibleHeight];
-    const key = `${geometry.join(":")}:${referenceWidth}:${referenceHeight}`;
+    const correctedReferenceHeight = referenceHeight * landmarkHeightScale;
+    const key = `${geometry.join(":")}:${referenceWidth}:${correctedReferenceHeight}`;
     if (frame.dataset.geometry === key) return;
-    frame.style.setProperty("--car-visible-aspect", `${referenceWidth} / ${referenceHeight}`);
+    frame.style.setProperty("--car-visible-aspect", `${referenceWidth} / ${correctedReferenceHeight}`);
     frame.style.setProperty("--car-image-width", `${canvasWidth / visibleWidth * 100}%`);
     frame.style.setProperty("--car-image-height", `${canvasHeight / visibleHeight * 100}%`);
     frame.style.setProperty("--car-image-left", `${-alphaLeft / visibleWidth * 100}%`);
@@ -610,7 +612,7 @@ class StarLineAppPanel extends HTMLElement {
       <div class="state-row perimeter-row">${[0,1,2].map(() => `<button class="state" type="button"><ha-icon></ha-icon><div><span></span><strong></strong></div></button>`).join("")}</div>
       <div class="state-row operational-row"><button class="state engine" type="button"><ha-icon></ha-icon><div><span>Двигатель</span><strong></strong></div></button><button class="event" type="button" data-view-target="history"><ha-icon icon="mdi:car-info"></ha-icon><div><span></span><strong></strong></div></button><button class="state brake" type="button"><ha-icon icon="mdi:car-brake-hold"></ha-icon><div><span>Ручник</span><strong></strong></div></button></div>
     </article>`;
-    this._applyCarGeometry(this.$(".summary-car-frame", pane), scene.geometry, scene.referenceSize);
+    this._applyCarGeometry(this.$(".summary-car-frame", pane), scene.geometry, scene.referenceSize, scene.landmarkHeightScale);
   }
 
   _mountAsyncView(pane, view) {
@@ -681,7 +683,7 @@ class StarLineAppPanel extends HTMLElement {
 
     const scene = this._scene(vehicle);
     const car = this.$(".summary-car", pane);
-    this._applyCarGeometry(this.$(".summary-car-frame", pane), scene.geometry, scene.referenceSize);
+    this._applyCarGeometry(this.$(".summary-car-frame", pane), scene.geometry, scene.referenceSize, scene.landmarkHeightScale);
     if (car.getAttribute("src") !== scene.src) car.setAttribute("src", scene.src);
 
     const gsm = this._entity(vehicle, ["gsm_lvl", "gsm_level"]);

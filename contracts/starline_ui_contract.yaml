@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: 0.6.4
+version: 0.6.5
 ui_standard: 1.9
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
@@ -123,9 +123,11 @@ summary_screen:
       current_source: starline_open_api_cached_60_seconds
       refresh_behavior: force_current_read_only_vehicle_state
       vehicle_horizontal_alignment: centered_by_asset_alpha_bounds
-      vehicle_scale_basis: visible_asset_alpha_bounds
+      vehicle_scale_basis: visual_landmarks_over_alpha_bounds
       visible_vehicle_width_percent: 72
       vehicle_proportion_reference: "683"
+      landmark_basis: [wheel_line, roofline, front_bumper, rear_bumper]
+      landmark_height_scale: {"130": 1.04, "683": 1.0}
       reference_visible_size_by_state:
         default: [1824, 793]
         engine: [1866, 843]
@@ -140,8 +142,9 @@ summary_screen:
       scene_height_source: remaining_fixed_shell_grid_viewport
       status_row_height_px: 74
       status_value_lines: 2
-      operational_columns: ["1fr", "1.35fr", ".65fr"]
+      operational_columns_percent: [40, 38, 22]
       operational_value_layout: icon_with_aligned_label_and_value
+      engine_value_line: single_line_no_clip
       text_overflow_policy: wrap_without_font_reduction
       independent_overlays: [armed_field, alarm_field, offline_desaturation]
       animated_alarm: forbidden
