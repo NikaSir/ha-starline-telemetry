@@ -44,7 +44,7 @@ In core-bridge mode, the request reuses the active core StarLine SLNet session i
 
 ## Current baseline
 
-Internal integration version: `0.5.3`
+Internal integration version: `0.5.4`
 
 Platforms:
 
@@ -132,7 +132,8 @@ The native panel lives at `/starline` and uses the fixed phone-first navigation:
 
 The daily-use screen follows the information hierarchy of the native StarLine mobile application while keeping the NikaS Home Assistant visual language:
 
-- both vehicle cards and their online status without a redundant selector;
+- separate initial pages for 130 and 683, selected by the fixed vehicle selector;
+- one full-height vehicle card and its online status per page;
 - compact GPS, GSM, battery, fuel, cabin/engine temperature, mileage and parking telemetry;
 - vehicle mnemonic with security, engine and perimeter state;
 - latest significant StarLine state event;

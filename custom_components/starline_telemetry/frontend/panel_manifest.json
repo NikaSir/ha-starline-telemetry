@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "home_assistant_menu_event": "hass-toggle-menu",
@@ -64,8 +64,12 @@
     }
   },
   "summary": {
-    "vehicle_switcher": "hidden",
-    "vehicle_cards": "all",
+    "vehicle_switcher": "fixed_two_page_selector",
+    "vehicle_cards": "selected_one_per_page",
+    "vehicle_page_order": [
+      "130-й",
+      "683-й"
+    ],
     "operational_order": [
       "engine_running",
       "last_event",
