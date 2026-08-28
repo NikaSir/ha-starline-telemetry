@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.5.9. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.5.10. Static bundle checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -99,3 +99,9 @@ Audit target: UI/integration 0.5.9. Static bundle checks pass; final iPhone fiel
 - Vehicle scale and the common horizontal centre remain unchanged for every state asset.
 - The engine-temperature metric receives internal width from icon gap and padding, without reducing its text-size floor or badge size.
 - Live security, refresh, history, statistics, navigation and zoom behavior remain unchanged.
+
+## v0.5.10 open-base security-dome correction
+
+- The security dome retains its upper arc and soft translucent fill but no longer draws a horizontal baseline beneath the vehicle.
+- The approved vehicle size, horizontal centre, vertical grounding and metric layout remain unchanged.
+- Live security state, typography, history, statistics, navigation and zoom behavior remain unchanged.

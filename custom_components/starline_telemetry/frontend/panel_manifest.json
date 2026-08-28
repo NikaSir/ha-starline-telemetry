@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.5.9",
+  "version": "0.5.10",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "home_assistant_menu_event": "hass-toggle-menu",
@@ -105,7 +105,7 @@
       "130": {"width_percent": 76, "horizontal": "center", "bottom_px": 146},
       "683": {"width_percent": 73, "horizontal": "center", "bottom_px": 162}
     },
-    "security_field_geometry": "grounded_half_dome_aligned_to_wheel_line",
+    "security_field_geometry": "grounded_half_dome_open_at_wheel_line",
     "state_scene_overlays": [
       "armed_field",
       "alarm_field",
