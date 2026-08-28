@@ -43,6 +43,9 @@ def main() -> None:
         "return_to",
         "history.pushState()",
         "history.back()",
+        "Capture precedence is:",
+        "exact form `UI vX.Y.Z`",
+        "focus state and pressed response",
     ):
         require(clause in standard, f"canonical Header-return clause missing: {clause}")
     for clause in (
@@ -55,13 +58,26 @@ def main() -> None:
         require(clause in navigation_contract, f"canonical navigation clause missing: {clause}")
 
     role = config.get("role")
-    sources = "\n".join(read_relative(path) for path in config.get("runtime_files", []))
     require(role in {"base", "specialized", "readiness"}, f"unsupported NikaS UI role: {role}")
+    runtime_files = config.get("runtime_files", [])
+    require(isinstance(runtime_files, list), "runtime_files must be a list")
+    require(len(runtime_files) == len(set(runtime_files)), "runtime_files must not contain duplicates")
+    sources = "\n".join(read_relative(path) for path in runtime_files)
+
+    production_entrypoint = config.get("production_entrypoint")
+    if production_entrypoint:
+        require(
+            production_entrypoint in runtime_files,
+            "production_entrypoint must be one of the checked runtime_files",
+        )
 
     if role == "readiness":
+        require(not runtime_files, "readiness-only repository must not claim a panel runtime")
         compliance = read_relative(config["compliance_path"])
         require("GAP" in compliance, "readiness-only repository must record the absent runtime as GAP")
         return
+
+    require(runtime_files, f"{role} repository must declare checked runtime_files")
 
     for token in (
         "nikas.specialized.source_route.v1",
@@ -77,6 +93,12 @@ def main() -> None:
 
     if role == "base":
         require("sessionStorage" in sources, "base shell must persist the source-route hand-off")
+        markers = config.get("source_handoff", {})
+        require(isinstance(markers, dict) and markers, "base shell must declare source_handoff markers")
+        for name in ("storage_write_marker", "route_normalizer_marker", "capture_marker"):
+            marker = markers.get(name)
+            require(isinstance(marker, str) and marker, f"source_handoff.{name} must be configured")
+            require(marker in sources, f"base source-route hand-off marker missing: {marker}")
         for token in (
             "/dashboard-zont",
             "/starline",
@@ -89,10 +111,44 @@ def main() -> None:
             require(token in sources, f"canonical specialized-panel route missing from base registry: {token}")
         return
 
-    for token in ("return_to", "from", "history.pushState", "location-changed", "UI v"):
+    for token in (
+        "return_to",
+        "from",
+        "history.pushState",
+        "location-changed",
+        "UI v",
+        "sessionStorage",
+        "removeItem(",
+        "window.location.origin",
+        "url.origin",
+        "url.pathname",
+        "document.referrer",
+        "parent_route",
+    ):
         require(token in sources, f"specialized Header-return runtime missing token: {token}")
     require("history.back(" not in sources, "history.back() is forbidden by the NikaS routing contract")
     require("<button" in sources or 'createElement("button")' in sources, "center title must be a semantic button")
+
+    markers = config.get("header_return", {})
+    require(isinstance(markers, dict) and markers, "specialized panel must declare header_return markers")
+    for name in (
+        "button_marker",
+        "version_marker",
+        "focus_marker",
+        "pressed_marker",
+        "explicit_precedence_marker",
+        "capture_once_marker",
+    ):
+        marker = markers.get(name)
+        require(isinstance(marker, str) and marker, f"header_return.{name} must be configured")
+        require(marker in sources, f"specialized Header-return marker missing: {marker}")
+
+    version_marker = markers["version_marker"]
+    require("UI v" in version_marker, "header_return.version_marker must identify the exact UI version line")
+    require("·" not in version_marker, "header_return.version_marker must be version-only")
+
+    for marker in config.get("forbidden_runtime_markers", []):
+        require(marker not in sources, f"forbidden specialized-panel runtime marker present: {marker}")
 
 
 if __name__ == "__main__":
