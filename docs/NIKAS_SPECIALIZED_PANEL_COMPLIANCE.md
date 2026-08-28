@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.5.3. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.5.4. Static bundle checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -25,7 +25,7 @@ Audit target: UI/integration 0.5.3. Static bundle checks pass; final iPhone fiel
 ## Remaining field checks
 
 1. Confirm native scrolling on long History/Trips/Diagnostics views at 100% in the iPhone Companion App.
-2. Confirm the vehicle selector on History/Trips/Diagnostics, its absence on Summary, and the Header and Bottom Tab Bar at every scale.
+2. Confirm the fixed `130 / 683` selector on all four views and the Header and Bottom Tab Bar at every scale.
 3. Confirm focal pinch, axis locks, long press, `more-info`, reset toast and safe areas on device.
 
 ## v0.5.1 history and typography delta
@@ -51,3 +51,10 @@ Audit target: UI/integration 0.5.3. Static bundle checks pass; final iPhone fiel
 - Armed state reads `Охрана / Включена` on a blue-tinted shield plaque. Disarmed remains neutral and alarm remains red.
 - The fit is recalculated when the content viewport changes and does not alter the transform-owned scaling model.
 - History sources, event timestamps, action labels and statistics remain unchanged.
+
+## v0.5.4 split Summary pages
+
+- The combined two-card Summary is split into separate initial pages for 130 and 683.
+- The fixed vehicle selector changes the active initial page without changing the Bottom Tab Bar.
+- One selected vehicle card receives the full available Summary height; approved metrics, status rows, connection and security states remain unchanged.
+- History and statistics behavior remain unchanged.

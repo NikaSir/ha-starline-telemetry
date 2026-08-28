@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: 0.5.3
+version: 0.5.4
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
 repository_policy: self_contained
@@ -89,10 +89,10 @@ role_aliases:
 
 summary_screen:
   title: Сводка
-  purpose: simultaneous_state_of_all_vehicles
+  purpose: selected_vehicle_daily_overview
   vehicle_order: [130-й, 683-й]
-  vehicle_cards: all
-  vehicle_switcher: hidden
+  vehicle_cards: selected_one_per_page
+  vehicle_switcher: fixed_two_page_selector
   model_label: Nissan MURANO Z52
   iphone_target: true
   workspace_heading: false

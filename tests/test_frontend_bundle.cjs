@@ -8,10 +8,11 @@ const bundle = fs.readFileSync("custom_components/starline_telemetry/frontend/st
 const source = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v016.js", "utf8");
 const visualSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v017.js", "utf8");
 const sceneSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v018.js", "utf8");
+const splitSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v019.js", "utf8");
 
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
-assert.equal(manifest.version, "0.5.3");
+assert.equal(manifest.version, "0.5.4");
 assert.equal(manifest.zoom.native_vertical_scroll_at_or_below_percent, 100);
 assert.equal(manifest.zoom.one_finger_pan, "above_100_percent_on_overflowing_axes_only");
 assert.deepEqual(manifest.typography.floors_px, {
@@ -27,7 +28,9 @@ assert.deepEqual(manifest.summary.operational_order, [
   "last_event",
   "parking",
 ]);
-assert.equal(manifest.summary.vehicle_switcher, "hidden");
+assert.equal(manifest.summary.vehicle_switcher, "fixed_two_page_selector");
+assert.equal(manifest.summary.vehicle_cards, "selected_one_per_page");
+assert.deepEqual(manifest.summary.vehicle_page_order, ["130-й", "683-й"]);
 assert.equal(manifest.summary.last_event_width, "expanded_from_parking_column");
 assert.equal(manifest.summary.connection_position, "left_free_scene");
 assert.equal(manifest.summary.scene_height, "fills_available_summary_viewport");
@@ -89,6 +92,12 @@ assert.doesNotMatch(sceneSource, /font-size:/, "scene pass must preserve typogra
 assert.doesNotMatch(sceneSource, /_eventsFromHistory|_starLineEvents|panel\/history/, "scene pass must not change history or statistics");
 assert.match(bundle, /starline-app-panel-v018/);
 
+assert.match(splitSource, /SWITCHER_COMPONENT\.prototype\._installFixedVehicleSwitcher\.call\(this\)/);
+assert.match(splitSource, /class="dual-summary single-summary"/);
+assert.match(splitSource, /this\._vehicleSummaryCard\(selected\)/);
+assert.doesNotMatch(splitSource, /_eventsFromHistory|_starLineEvents|panel\/history/, "split-page pass must not change history or statistics");
+assert.match(bundle, /starline-app-panel-v019/);
+
 process.env.TZ = "Europe/Moscow";
 const registry = new Map();
 global.location = { hash: "#status" };
@@ -135,7 +144,17 @@ const Panel = customElements.get("starline-app-panel");
 assert.ok(Panel, "stable production component must be registered");
 const instance = new Panel();
 
+instance._mobileOnly = () => true;
+instance._vehicle = () => ({ device_id: "130", name: "130-й" });
+instance._vehicleSummaryCard = (item) => `<article>${item.device_id}</article>`;
+assert.equal(
+  instance._statusView(null),
+  '<div class="dual-summary single-summary"><article>130</article></div>',
+  "Summary must render only the selected vehicle page",
+);
+
 assert.equal(instance._summarySceneGrowth(720, 660, 2), 30);
+assert.equal(instance._summarySceneGrowth(720, 660, 1), 60);
 assert.equal(instance._summarySceneGrowth(620, 660, 2), 0);
 assert.equal(instance._summarySceneGrowth(720, 660, 0), 0);
 
@@ -174,10 +193,10 @@ instance.shadowRoot = {
 instance._orderedVehicles = () => [];
 instance._view = "status";
 instance._installFixedVehicleSwitcher();
-assert.equal(fixedSwitcherQueries, 0, "Summary must not attempt to install a vehicle switcher");
+assert.equal(fixedSwitcherQueries, 1, "Summary must install the two-page vehicle selector");
 instance._view = "history";
 instance._installFixedVehicleSwitcher();
-assert.equal(fixedSwitcherQueries, 1, "single-vehicle views must retain the vehicle switcher path");
+assert.equal(fixedSwitcherQueries, 2, "single-vehicle views must retain the vehicle switcher path");
 
 const iso = (hour, minute, second) => new Date(Date.UTC(2026, 7, 26, hour, minute, second)).toISOString();
 const vehicle = {
