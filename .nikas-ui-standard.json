@@ -5,7 +5,9 @@
   "navigation_contract_path": "docs/NIKAS_PANEL_NAVIGATION_CONTRACT.md",
   "navigation_contract_sha256": "4f3efe18470f106f2c140cccb17245f3ad4cca4213da760570373f84952cebea",
   "role": "specialized",
-  "runtime_files": ["custom_components/starline_telemetry/frontend/starline-app.js"],
+  "runtime_files": [
+    "custom_components/starline_telemetry/frontend/starline-app.js"
+  ],
   "production_entrypoint": "custom_components/starline_telemetry/frontend/starline-app.js",
   "header_return": {
     "button_marker": "className = \"nika-title\"",
