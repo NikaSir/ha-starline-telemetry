@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.6.0 against NikaS specialized-panel standard v1.7. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.6.0 against NikaS specialized-panel standard v1.8 and Navigation Contract v1.0. Static bundle checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -23,7 +23,7 @@ Audit target: UI/integration 0.6.0 against NikaS specialized-panel standard v1.7
 | Stable production module | PASS | `scripts/build_frontend_bundle.py` deterministically copies one `starline-panel-source.js` runtime into autonomous `frontend/starline-app.js`; production registration loads only that import-free module. |
 | Stable shell and point patching | PASS | The constructor mounts Header, selector, viewport/canvas and navigation once; routine `hass` changes coalesce into `_patchAll()` without assigning `shadowRoot.innerHTML`. |
 | Lazy cached views and stable images/maps | PASS | Views and per-vehicle panes are created once and reused; car `src` changes only when the scene asset changes and map cards are cached per vehicle. |
-| Safe title navigation | PASS | The title resolves an allowed originating base route and uses `history.pushState()` plus `location-changed`; it never calls `history.back()`. |
+| Safe title navigation | PASS | The title normalizes only the three canonical v11 base entries, consumes the timestamped one-shot hand-off, persists the accepted route and uses `history.pushState()` plus `location-changed`; it never calls `history.back()`. |
 
 ## Remaining field checks
 

@@ -20,6 +20,8 @@ jobs:
             node --check "$file"
           done
           node tests/test_frontend_bundle.cjs
+      - name: Enforce NikaS UI standard v1.8
+        run: python scripts/check_nikas_ui_standard.py
       - name: Check panel assets
         run: |
           python - <<'PY'

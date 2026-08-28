@@ -9,7 +9,10 @@ const VIEWS = ["status", "history", "trips", "diagnostics"];
 const WRITABLE_DOMAINS = new Set(["lock", "switch", "button"]);
 const UNRELIABLE_STATES = new Set(["", "none", "null", "unknown", "unavailable"]);
 const SOURCE_ROUTE_KEY = "nikas.specialized.source_route.v1";
-const ALLOWED_BASE_ROUTES = ["/dashboard-house", "/dashboard-actions", "/dashboard-infrastructure"];
+const SOURCE_ROUTE_AT_KEY = "nikas.specialized.source_route_at.v1";
+const RETURN_ROUTE_KEY = "nikas.starline.return_route.v1";
+const SAFE_DEFAULT_ROUTE = "/dashboard-house-v11/home";
+const SOURCE_ROUTE_TTL_MS = 30_000;
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -17,35 +20,57 @@ const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const midpoint = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 const domainOf = (entityId) => String(entityId || "").split(".", 1)[0];
 
+function canonicalBaseRoute(pathname) {
+  if (pathname === "/dashboard-house-v11" || pathname.startsWith("/dashboard-house-v11/")) {
+    return "/dashboard-house-v11/home";
+  }
+  if (pathname === "/dashboard-actions" || pathname.startsWith("/dashboard-actions/")) {
+    return "/dashboard-actions/home";
+  }
+  if (pathname === "/dashboard-infrastructure" || pathname.startsWith("/dashboard-infrastructure/")) {
+    return "/dashboard-infrastructure/overview";
+  }
+  return null;
+}
+
 function safeBaseRoute(candidate) {
   if (!candidate) return null;
   try {
-    const url = new URL(candidate, location.origin);
-    if (url.origin !== location.origin) return null;
-    const match = ALLOWED_BASE_ROUTES.find((root) => url.pathname === root || url.pathname.startsWith(`${root}/`));
-    return match ? `${url.pathname}${url.search}${url.hash}` : null;
+    const url = new URL(decodeURIComponent(String(candidate).trim()), window.location.origin);
+    if (url.origin !== window.location.origin) return null;
+    return canonicalBaseRoute(url.pathname);
   } catch (_err) {
     return null;
   }
 }
 
 function captureReturnRoute(configured) {
-  const params = new URLSearchParams(location.search);
-  const candidates = [
-    params.get("return_to"),
-    params.get("from"),
-    sessionStorage.getItem(SOURCE_ROUTE_KEY),
-    document.referrer,
-    configured,
-    "/dashboard-house",
-  ];
-  const route = candidates.map(safeBaseRoute).find(Boolean) || "/dashboard-house";
-  sessionStorage.setItem(SOURCE_ROUTE_KEY, route);
+  const params = new URLSearchParams(window.location.search);
+  const explicit = safeBaseRoute(params.get("return_to")) || safeBaseRoute(params.get("from"));
+  let handedOff = null;
+  let saved = null;
+  try {
+    const handedOffAtRaw = sessionStorage.getItem(SOURCE_ROUTE_AT_KEY);
+    const handedOffAt = Number(handedOffAtRaw);
+    const fresh = handedOffAtRaw === null
+      || (Number.isFinite(handedOffAt) && Date.now() - handedOffAt <= SOURCE_ROUTE_TTL_MS);
+    handedOff = fresh ? safeBaseRoute(sessionStorage.getItem(SOURCE_ROUTE_KEY)) : null;
+    sessionStorage.removeItem(SOURCE_ROUTE_KEY);
+    sessionStorage.removeItem(SOURCE_ROUTE_AT_KEY);
+    saved = safeBaseRoute(sessionStorage.getItem(RETURN_ROUTE_KEY));
+  } catch (_err) {}
+  const route = explicit
+    || handedOff
+    || saved
+    || safeBaseRoute(document.referrer)
+    || safeBaseRoute(configured)
+    || SAFE_DEFAULT_ROUTE;
+  try { sessionStorage.setItem(RETURN_ROUTE_KEY, route); } catch (_err) {}
   return route;
 }
 
 function navigate(route) {
-  const safe = safeBaseRoute(route) || "/dashboard-house";
+  const safe = safeBaseRoute(route) || SAFE_DEFAULT_ROUTE;
   history.pushState(null, "", safe);
   window.dispatchEvent(new Event("location-changed"));
 }

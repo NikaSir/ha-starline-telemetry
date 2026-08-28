@@ -148,7 +148,7 @@ The timeline prefers the official StarLine event journal for the last 24 hours. 
 
 The 72-hour movement view uses the recorded StarLine `device_tracker` history. Home Assistant's native Map card renders the historical path, while the panel groups GPS points into trips and estimates travelled distance using the haversine formula.
 
-The safe fallback parent is `/dashboard-house`; when opened from an approved base panel, the title returns to that originating route.
+The safe fallback parent is `/dashboard-house-v11/home`; when opened from an approved base panel, the title returns to that originating canonical entry route.
 
 Data source priority is role-by-role:
 
@@ -174,7 +174,7 @@ See:
 8. The native panel remains read-only even when its compatibility source exposes writable entities.
 9. Event history uses only the official read-only StarLine journal endpoint, under a separate quota ceiling, with Recorder as a state-transition-only fallback.
 10. Corresponding panel typography is never smaller than the official StarLine mobile application reference.
-11. The UI follows NikaS specialized-panel standard v1.7: one fixed shell, one transform canvas, cached views and point telemetry patches without routine DOM remounts.
+11. The UI follows NikaS specialized-panel standard v1.8 and Navigation Contract v1.0: one fixed shell, one transform canvas, deterministic source return, cached views and point telemetry patches without routine DOM remounts.
 
 ## License
 

@@ -1,0 +1,33 @@
+{
+  "version": "1.8",
+  "standard_path": "docs/NIKAS_SPECIALIZED_PANEL_UI_STANDARD.md",
+  "standard_sha256": "af41ee58956f0076519157c295f8e9b97f82c1e764fe64456680a1aeae0ba244",
+  "navigation_contract_path": "docs/NIKAS_PANEL_NAVIGATION_CONTRACT.md",
+  "navigation_contract_sha256": "b434169a733d5c40eb0155ccc1a0377354002caab6d2073801754ac5a367c37b",
+  "role": "specialized",
+  "runtime_files": [
+    "custom_components/starline_telemetry/frontend/starline-app.js"
+  ],
+  "production_entrypoint": "custom_components/starline_telemetry/frontend/starline-app.js",
+  "header_return": {
+    "button_marker": "class=\"title-button\"",
+    "version_marker": "<span>UI v${UI_VERSION}</span>",
+    "focus_marker": ".title-button:focus-visible",
+    "pressed_marker": ".title-button:active",
+    "explicit_precedence_marker": "safeBaseRoute(params.get(\"return_to\")) || safeBaseRoute(params.get(\"from\"))",
+    "capture_once_marker": "if (!this._returnRoute) this._returnRoute = captureReturnRoute"
+  },
+  "forbidden_runtime_markers": [
+    "history.back("
+  ],
+  "title_plaque_reference": {
+    "implementation": "LIDER",
+    "min_width": "min(290px,100%)",
+    "min_height_px": 44,
+    "padding_px": "5 14",
+    "radius_px": 16,
+    "primary_background_mix_percent": 5,
+    "primary_border_mix_percent": 24,
+    "shadow": "0 5px 16px rgba(23,45,76,.06)"
+  }
+}
