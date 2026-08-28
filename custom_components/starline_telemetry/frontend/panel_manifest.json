@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "ui_standard": "1.9",
@@ -108,9 +108,13 @@
     "vehicle_geometry": {
       "mode": "visible_alpha_frame",
       "visible_width_percent": 72,
-      "visible_height_scale": {
-        "130": 1.05,
-        "683": 1.0
+      "proportion_reference_vehicle": "683",
+      "reference_visible_size_by_state": {
+        "default": [1824, 793],
+        "engine": [1866, 843],
+        "door_open": [1862, 840],
+        "hood_open": [1692, 825],
+        "trunk_open": [1599, 820]
       },
       "horizontal": "visible_alpha_center",
       "wheel_line_bottom_px": 167,
@@ -120,7 +124,8 @@
     "scene_height_source": "remaining_fixed_shell_grid_viewport",
     "status_row_height_px": 74,
     "status_value_lines": 2,
-    "operational_value_layout": "full_width_second_line",
+    "operational_columns": ["1fr", "1.35fr", ".65fr"],
+    "operational_value_layout": "icon_with_aligned_label_and_value",
     "security_field_lower_edge": "open_and_faded",
     "security_field_geometry": "grounded_half_dome_open_at_wheel_line",
     "state_scene_overlays": [
