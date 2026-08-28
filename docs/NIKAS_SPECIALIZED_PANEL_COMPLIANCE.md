@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.5.6. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.5.7. Static bundle checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -75,3 +75,10 @@ Audit target: UI/integration 0.5.6. Static bundle checks pass; final iPhone fiel
 - Alarm still overrides the ordinary armed field and missing security telemetry remains explicit.
 - Per-vehicle geometry enlarges and lowers every state image while retaining a stable wheel line.
 - Header, fixed vehicle selector, Bottom Tab Bar, typography floors, zoom, history and statistics remain unchanged.
+
+## v0.5.7 armed state and scene-height correction
+
+- Home Assistant core StarLine `lock` is restored as an official security-mode source because the core entity maps directly to the StarLine `arm` state.
+- All explicit StarLine security signals are evaluated; an active source wins over a conflicting inactive source so the panel cannot falsely claim that protection is removed.
+- Both vehicles and their security field move substantially upward while retaining the approved per-vehicle size and horizontal geometry.
+- Header, selector, Bottom Tab Bar, typography, zoom, history and statistics remain unchanged.

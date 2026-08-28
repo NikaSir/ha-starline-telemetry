@@ -70,7 +70,3 @@ class StarLineAppPanelV021 extends BASE_COMPONENT {
 if (!customElements.get("starline-app-panel-v021")) {
   customElements.define("starline-app-panel-v021", StarLineAppPanelV021);
 }
-
-if (!customElements.get("starline-app-panel")) {
-  customElements.define("starline-app-panel", class extends StarLineAppPanelV021 {});
-}

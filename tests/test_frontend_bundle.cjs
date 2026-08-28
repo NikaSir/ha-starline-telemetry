@@ -11,10 +11,11 @@ const sceneSource = fs.readFileSync("custom_components/starline_telemetry/fronte
 const splitSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v019.js", "utf8");
 const stateSceneSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v020.js", "utf8");
 const securityGeometrySource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v021.js", "utf8");
+const armedHeightSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v022.js", "utf8");
 
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
-assert.equal(manifest.version, "0.5.6");
+assert.equal(manifest.version, "0.5.7");
 assert.equal(manifest.zoom.native_vertical_scroll_at_or_below_percent, 100);
 assert.equal(manifest.zoom.one_finger_pan, "above_100_percent_on_overflowing_axes_only");
 assert.deepEqual(manifest.typography.floors_px, {
@@ -49,11 +50,11 @@ assert.deepEqual(manifest.summary.state_scene_image_priority, [
   "engine_running",
   "default",
 ]);
-assert.deepEqual(manifest.summary.armed_source_priority, ["armed", "security", "arm", "guard"]);
-assert.equal(manifest.summary.central_lock_as_armed_source, false);
+assert.deepEqual(manifest.summary.armed_source_priority, ["lock", "armed", "security", "arm", "guard"]);
+assert.equal(manifest.summary.security_conflict_policy, "any_explicit_armed_source_wins");
 assert.deepEqual(manifest.summary.vehicle_geometry, {
-  130: { width_percent: 76, right_percent: -3, bottom_px: 38 },
-  683: { width_percent: 73, right_percent: -1, bottom_px: 36 },
+  130: { width_percent: 76, right_percent: -3, bottom_px: 126 },
+  683: { width_percent: 73, right_percent: -1, bottom_px: 122 },
 });
 assert.match(panel, /starline-app\.js\?v=/);
 assert.doesNotMatch(bundle, /^import\s+/m, "production bundle must have no runtime imports");
@@ -133,6 +134,15 @@ assert.match(securityGeometrySource, /bottom:38px !important/);
 assert.doesNotMatch(securityGeometrySource, /font-size:/, "security and geometry pass must preserve typography floors");
 assert.doesNotMatch(securityGeometrySource, /_eventsFromHistory|_starLineEvents|panel\/history/, "security and geometry pass must not change history or statistics");
 assert.match(bundle, /starline-app-panel-v021/);
+
+assert.match(armedHeightSource, /\["lock", "armed", "security", "arm", "guard"\]/);
+assert.match(armedHeightSource, /if \(values\.includes\(true\)\) return true/);
+assert.match(armedHeightSource, /starline-car-130-[^}]*\{[\s\S]*bottom:126px !important/);
+assert.match(armedHeightSource, /starline-car-683-[^}]*\{[\s\S]*bottom:122px !important/);
+assert.match(armedHeightSource, /\.vehicle-state-field \{[\s\S]*bottom:96px !important;[\s\S]*width:79% !important/);
+assert.doesNotMatch(armedHeightSource, /font-size:/, "armed-state correction must preserve typography floors");
+assert.doesNotMatch(armedHeightSource, /_eventsFromHistory|_starLineEvents|panel\/history/, "armed-state correction must not change history or statistics");
+assert.match(bundle, /starline-app-panel-v022/);
 
 for (const id of ["130", "683"]) {
   for (const state of ["engine", "door-open", "hood-open", "trunk-open"]) {
@@ -257,14 +267,25 @@ instance._isOn = originalIsOn;
 const originalHass = instance._hass;
 instance._hass = {
   states: {
-    "binary_sensor.central_lock": { state: "off" },
-    "binary_sensor.armed": { state: "on" },
+    "lock.starline_security": { state: "locked" },
+    "binary_sensor.armed": { state: "off" },
   },
 };
 assert.equal(
-  instance._sceneState({ entities: { lock: "binary_sensor.central_lock", armed: "binary_sensor.armed" } }).armed,
+  instance._sceneState({ entities: { lock: "lock.starline_security", armed: "binary_sensor.armed" } }).armed,
   true,
-  "central lock must not override the dedicated armed state",
+  "an official locked StarLine security source must override a conflicting inactive source",
+);
+instance._hass = {
+  states: {
+    "lock.starline_security": { state: "unlocked" },
+    "binary_sensor.armed": { state: "off" },
+  },
+};
+assert.equal(
+  instance._sceneState({ entities: { lock: "lock.starline_security", armed: "binary_sensor.armed" } }).armed,
+  false,
+  "protection is removed only when every explicit security source is inactive",
 );
 instance._hass = { states: { "binary_sensor.arm_state": { state: "on" } } };
 assert.equal(
