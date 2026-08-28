@@ -30,6 +30,7 @@ SOURCES = (
     "starline-app-v022.js",
     "starline-app-v023.js",
     "starline-app-v024.js",
+    "starline-app-v025.js",
 )
 TARGET = FRONTEND / "starline-app.js"
 

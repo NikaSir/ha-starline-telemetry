@@ -14,10 +14,11 @@ const securityGeometrySource = fs.readFileSync("custom_components/starline_telem
 const armedHeightSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v022.js", "utf8");
 const centeredSecuritySource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v023.js", "utf8");
 const groundedDomeSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v024.js", "utf8");
+const openDomeSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v025.js", "utf8");
 
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
-assert.equal(manifest.version, "0.5.9");
+assert.equal(manifest.version, "0.5.10");
 assert.equal(manifest.zoom.native_vertical_scroll_at_or_below_percent, 100);
 assert.equal(manifest.zoom.one_finger_pan, "above_100_percent_on_overflowing_axes_only");
 assert.deepEqual(manifest.typography.floors_px, {
@@ -60,7 +61,7 @@ assert.deepEqual(manifest.summary.vehicle_geometry, {
   130: { width_percent: 76, horizontal: "center", bottom_px: 146 },
   683: { width_percent: 73, horizontal: "center", bottom_px: 162 },
 });
-assert.equal(manifest.summary.security_field_geometry, "grounded_half_dome_aligned_to_wheel_line");
+assert.equal(manifest.summary.security_field_geometry, "grounded_half_dome_open_at_wheel_line");
 assert.match(panel, /starline-app\.js\?v=/);
 assert.doesNotMatch(bundle, /^import\s+/m, "production bundle must have no runtime imports");
 assert.match(bundle, /customElements\.define\("starline-app-panel"/);
@@ -171,6 +172,12 @@ assert.match(groundedDomeSource, /\.summary-metric:nth-child\(3\)[\s\S]*column-g
 assert.doesNotMatch(groundedDomeSource, /font-size:/, "grounding pass must preserve typography floors");
 assert.doesNotMatch(groundedDomeSource, /_eventsFromHistory|_starLineEvents|panel\/history/, "grounding pass must not change history or statistics");
 assert.match(bundle, /starline-app-panel-v024/);
+
+assert.match(openDomeSource, /border-bottom-color:transparent !important/);
+assert.doesNotMatch(openDomeSource, /bottom:\d+px|width:\d+%|height:\d+px/, "open-dome pass must preserve accepted geometry");
+assert.doesNotMatch(openDomeSource, /font-size:/, "open-dome pass must preserve typography floors");
+assert.doesNotMatch(openDomeSource, /_eventsFromHistory|_starLineEvents|panel\/history/, "open-dome pass must not change history or statistics");
+assert.match(bundle, /starline-app-panel-v025/);
 
 for (const id of ["130", "683"]) {
   for (const state of ["engine", "door-open", "hood-open", "trunk-open"]) {
