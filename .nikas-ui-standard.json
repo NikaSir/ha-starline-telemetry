@@ -1,7 +1,9 @@
 {
-  "version": "1.7",
+  "version": "1.8",
   "standard_path": "docs/NIKAS_SPECIALIZED_PANEL_UI_STANDARD.md",
-  "standard_sha256": "17afc8ea93b07a4362c45e5e9d5f6504158e70a9c19328a545403a92f1e08a8c",
+  "standard_sha256": "03bc586ff334d06d593ea639fc7899d52ed8d0f3fa3255d133f1c6f32aeac8c2",
+  "navigation_contract_path": "docs/NIKAS_PANEL_NAVIGATION_CONTRACT.md",
+  "navigation_contract_sha256": "4f3efe18470f106f2c140cccb17245f3ad4cca4213da760570373f84952cebea",
   "role": "specialized",
   "runtime_files": ["custom_components/starline_telemetry/frontend/starline-app.js"],
   "production_entrypoint": "custom_components/starline_telemetry/frontend/starline-app.js",
@@ -10,7 +12,7 @@
     "version_marker": "subtitle.textContent = `UI v${UI_VERSION}`",
     "focus_marker": ".nika-title:focus-visible",
     "pressed_marker": ".nika-title:active",
-    "explicit_precedence_marker": "[\"return_to\", \"from\"]",
+    "explicit_precedence_marker": "safeReturnRoute(current.searchParams.get(\"return_to\")) || safeReturnRoute(current.searchParams.get(\"from\"))",
     "capture_once_marker": "if (!this._returnRoute) this._returnRoute = resolveReturnRoute(this)"
   }
 }
