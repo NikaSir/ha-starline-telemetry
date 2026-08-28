@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.5.8. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.5.9. Static bundle checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -91,3 +91,11 @@ Audit target: UI/integration 0.5.8. Static bundle checks pass; final iPhone fiel
 - The Header refresh button forces a current read-only vehicle-state refresh instead of only reloading panel configuration.
 - The security field shares the vehicle centre; metric labels may wrap without reducing their approved font size.
 - History, statistics, navigation and zoom behavior remain unchanged.
+
+## v0.5.9 grounded security-dome correction
+
+- Both centred vehicle layers move 70 px downward so their wheels sit in the visual centre of the free photo scene instead of floating above it.
+- The armed/alarm field is a grounded half-dome with a flat baseline aligned to the wheel line; the former closed oval is removed.
+- Vehicle scale and the common horizontal centre remain unchanged for every state asset.
+- The engine-temperature metric receives internal width from icon gap and padding, without reducing its text-size floor or badge size.
+- Live security, refresh, history, statistics, navigation and zoom behavior remain unchanged.

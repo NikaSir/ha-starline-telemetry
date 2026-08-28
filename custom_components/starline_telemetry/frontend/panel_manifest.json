@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.5.8",
+  "version": "0.5.9",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "home_assistant_menu_event": "hass-toggle-menu",
@@ -102,9 +102,10 @@
     "security_current_source": "starline_open_api_cached_60_seconds",
     "refresh_behavior": "force_current_read_only_vehicle_state",
     "vehicle_geometry": {
-      "130": {"width_percent": 76, "horizontal": "center", "bottom_px": 216},
-      "683": {"width_percent": 73, "horizontal": "center", "bottom_px": 232}
+      "130": {"width_percent": 76, "horizontal": "center", "bottom_px": 146},
+      "683": {"width_percent": 73, "horizontal": "center", "bottom_px": 162}
     },
+    "security_field_geometry": "grounded_half_dome_aligned_to_wheel_line",
     "state_scene_overlays": [
       "armed_field",
       "alarm_field",
