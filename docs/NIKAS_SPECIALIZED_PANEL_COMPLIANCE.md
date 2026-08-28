@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.5.5. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.5.6. Static bundle checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -68,3 +68,10 @@ Audit target: UI/integration 0.5.5. Static bundle checks pass; final iPhone fiel
 - Security no longer reports the ambiguous fallback `Норма`; missing armed-state telemetry is shown as `Нет данных`.
 - Operational values may use two lines without reducing the approved typography floor.
 - History and statistics behavior remain unchanged.
+
+## v0.5.6 security and geometry delta
+
+- Armed state uses the dedicated StarLine security entity; central locking cannot report security state.
+- Alarm still overrides the ordinary armed field and missing security telemetry remains explicit.
+- Per-vehicle geometry enlarges and lowers every state image while retaining a stable wheel line.
+- Header, fixed vehicle selector, Bottom Tab Bar, typography floors, zoom, history and statistics remain unchanged.

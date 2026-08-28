@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: 0.5.5
+version: 0.5.6
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
 repository_policy: self_contained
@@ -113,6 +113,8 @@ summary_screen:
       unknown: {label: Нет данных, tone: neutral}
     state_scene:
       image_priority: [hood_open, trunk_open, doors_open, engine_running, default]
+      armed_source_priority: [armed, security, arm, guard]
+      central_lock_as_armed_source: forbidden
       independent_overlays: [armed_field, alarm_field, offline_desaturation]
       animated_alarm: forbidden
       textual_state_retained: true
