@@ -22,6 +22,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import (
     StarLineApiError,
     StarLineAuthenticationError,
+    async_fetch_device_data,
     async_fetch_device_events,
     async_fetch_event_descriptions,
 )
@@ -51,6 +52,8 @@ _DATA_HISTORY_CACHE = "native_panel_history_cache"
 _DATA_HISTORY_LOCKS = "native_panel_history_locks"
 _DATA_HISTORY_BUDGET = "native_panel_history_budget"
 _DATA_EVENT_DESCRIPTIONS = "native_panel_event_descriptions"
+_DATA_LIVE_SECURITY_CACHE = "native_panel_live_security_cache"
+_LIVE_SECURITY_CACHE_SECONDS = 60
 _CORE_UNIQUE_ID = re.compile(r"^starline-(?P<key>.+)-(?P<device_id>\d+)$")
 _TELEMETRY_UNIQUE_ID = re.compile(r"^(?P<device_id>\d+)_(?P<key>.+)$")
 
@@ -102,6 +105,118 @@ def _discover_vehicle_entities(hass: HomeAssistant) -> list[dict[str, Any]]:
 def _bootstrap_payload(hass: HomeAssistant, entry: ConfigEntry | None) -> dict[str, Any]:
     vehicles = _discover_vehicle_entities(hass)
     return {"panel": {"id": "starline", "title": PANEL_TITLE, "path": f"/{PANEL_URL_PATH}", "icon": PANEL_ICON, "parent_route": PANEL_PARENT_ROUTE, "preferred_view": PANEL_PREFERRED_VIEW, "version": PANEL_VERSION, "read_only": True}, "source": {"primary": "starline_telemetry" if any("starline_telemetry" in vehicle["sources"].values() for vehicle in vehicles) else "core_starline", "core_entries": len(hass.config_entries.async_entries(CORE_STARLINE_DOMAIN)), "telemetry_entries": len(hass.config_entries.async_entries(DOMAIN)), "bridge_entry_id": entry.entry_id if entry is not None else None}, "vehicles": vehicles}
+
+
+def _normalize_arm(value: Any) -> bool | None:
+    """Normalize current StarLine arm values from boolean and legacy payloads."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        if value == 1:
+            return True
+        if value in (0, 2):
+            return False
+        return None
+    raw = str(value or "").strip().lower()
+    if raw in {"1", "on", "true", "locked", "armed"}:
+        return True
+    if raw in {"0", "2", "off", "false", "unlocked", "disarmed"}:
+        return False
+    return None
+
+
+def _core_runtime_device(hass: HomeAssistant, device_id: str):
+    """Return the official core StarLine runtime device when available."""
+    for entry in hass.config_entries.async_entries(CORE_STARLINE_DOMAIN):
+        account = getattr(entry, "runtime_data", None)
+        api = getattr(account, "api", None)
+        for device in getattr(api, "devices", {}).values():
+            if str(getattr(device, "device_id", "")) == device_id:
+                return account, device
+    return None, None
+
+
+async def _live_security_state(
+    hass: HomeAssistant, device_id: str, force: bool
+) -> dict[str, Any]:
+    """Read authoritative current security state without exposing credentials."""
+    cache = _history_domain_data(hass).setdefault(_DATA_LIVE_SECURITY_CACHE, {})
+    cached = cache.get(device_id)
+    if not force and isinstance(cached, dict):
+        age = time.monotonic() - float(cached.get("loaded_at", 0))
+        if age < _LIVE_SECURITY_CACHE_SECONDS:
+            return {**cached["payload"], "cached": True}
+
+    async with _history_lock(hass, f"live_security:{device_id}"):
+        cached = cache.get(device_id)
+        if not force and isinstance(cached, dict):
+            age = time.monotonic() - float(cached.get("loaded_at", 0))
+            if age < _LIVE_SECURITY_CACHE_SECONDS:
+                return {**cached["payload"], "cached": True}
+
+        source = "unavailable"
+        arm: bool | None = None
+        client = _telemetry_client_for_device(hass, device_id)
+        if client is not None:
+            try:
+                data = await client.async_get_device_data(int(device_id))
+            except StarLineAuthenticationError:
+                await client.async_authenticate()
+                data = await client.async_get_device_data(int(device_id))
+            arm = _normalize_arm(data.get("state", {}).get("arm"))
+            source = "starline_open_api"
+        else:
+            account, device = _core_runtime_device(hass, device_id)
+            if force and account is not None:
+                try:
+                    await account.update()
+                except Exception as err:  # noqa: BLE001
+                    _LOGGER.warning("Unable to refresh core StarLine state: %s", err)
+            if force and device is not None:
+                arm = _normalize_arm(getattr(device, "car_state", {}).get("arm"))
+                source = "core_starline_runtime"
+            elif token := _core_token_for_device(hass, device_id):
+                try:
+                    data = await async_fetch_device_data(
+                        async_get_clientsession(hass), token, device_id
+                    )
+                    arm = _normalize_arm(data.get("state", {}).get("arm"))
+                    source = "starline_open_api"
+                except StarLineApiError as err:
+                    _LOGGER.warning("Unable to read current StarLine security: %s", err)
+            if arm is None and device is not None:
+                arm = _normalize_arm(getattr(device, "car_state", {}).get("arm"))
+                source = "core_starline_runtime"
+
+        payload = {
+            "arm": arm,
+            "source": source,
+            "fetched_at": datetime.now(UTC).isoformat(),
+            "cached": False,
+        }
+        cache[device_id] = {"loaded_at": time.monotonic(), "payload": payload}
+        return payload
+
+
+async def _bootstrap_payload_live(
+    hass: HomeAssistant, entry: ConfigEntry | None, force: bool
+) -> dict[str, Any]:
+    """Build panel bootstrap with current read-only security snapshots."""
+    payload = _bootstrap_payload(hass, entry)
+    vehicles = payload["vehicles"]
+    security = await asyncio.gather(
+        *(
+            _live_security_state(hass, str(vehicle["device_id"]), force)
+            for vehicle in vehicles
+        ),
+        return_exceptions=True,
+    )
+    for vehicle, result in zip(vehicles, security, strict=True):
+        if isinstance(result, Exception):
+            _LOGGER.warning("Unable to load live StarLine security: %s", result)
+            continue
+        vehicle["live_security"] = result
+    return payload
 
 
 def _history_domain_data(hass: HomeAssistant) -> dict[str, Any]:
@@ -263,12 +378,24 @@ async def _starline_history(
         return payload
 
 
-@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/panel/bootstrap", vol.Optional("entry_id"): str})
-@callback
-def websocket_panel_bootstrap(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/panel/bootstrap",
+        vol.Optional("entry_id"): str,
+        vol.Optional("force", default=False): bool,
+    }
+)
+@websocket_api.async_response
+async def websocket_panel_bootstrap(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
     entry_id = msg.get("entry_id")
     entry = hass.config_entries.async_get_entry(entry_id) if entry_id else None
-    connection.send_result(msg["id"], _bootstrap_payload(hass, entry))
+    connection.send_result(
+        msg["id"], await _bootstrap_payload_live(hass, entry, msg["force"])
+    )
 
 
 @websocket_api.websocket_command(

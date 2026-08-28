@@ -12,10 +12,11 @@ const splitSource = fs.readFileSync("custom_components/starline_telemetry/fronte
 const stateSceneSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v020.js", "utf8");
 const securityGeometrySource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v021.js", "utf8");
 const armedHeightSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v022.js", "utf8");
+const centeredSecuritySource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v023.js", "utf8");
 
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
-assert.equal(manifest.version, "0.5.7");
+assert.equal(manifest.version, "0.5.8");
 assert.equal(manifest.zoom.native_vertical_scroll_at_or_below_percent, 100);
 assert.equal(manifest.zoom.one_finger_pan, "above_100_percent_on_overflowing_axes_only");
 assert.deepEqual(manifest.typography.floors_px, {
@@ -52,9 +53,11 @@ assert.deepEqual(manifest.summary.state_scene_image_priority, [
 ]);
 assert.deepEqual(manifest.summary.armed_source_priority, ["lock", "armed", "security", "arm", "guard"]);
 assert.equal(manifest.summary.security_conflict_policy, "any_explicit_armed_source_wins");
+assert.equal(manifest.summary.security_current_source, "starline_open_api_cached_60_seconds");
+assert.equal(manifest.summary.refresh_behavior, "force_current_read_only_vehicle_state");
 assert.deepEqual(manifest.summary.vehicle_geometry, {
-  130: { width_percent: 76, right_percent: -3, bottom_px: 126 },
-  683: { width_percent: 73, right_percent: -1, bottom_px: 122 },
+  130: { width_percent: 76, horizontal: "center", bottom_px: 216 },
+  683: { width_percent: 73, horizontal: "center", bottom_px: 232 },
 });
 assert.match(panel, /starline-app\.js\?v=/);
 assert.doesNotMatch(bundle, /^import\s+/m, "production bundle must have no runtime imports");
@@ -144,6 +147,20 @@ assert.doesNotMatch(armedHeightSource, /font-size:/, "armed-state correction mus
 assert.doesNotMatch(armedHeightSource, /_eventsFromHistory|_starLineEvents|panel\/history/, "armed-state correction must not change history or statistics");
 assert.match(bundle, /starline-app-panel-v022/);
 
+assert.match(centeredSecuritySource, /const raw = vehicle\?\.live_security\?\.arm/);
+assert.match(centeredSecuritySource, /left:50% !important;[\s\S]*right:auto !important;[\s\S]*translateX\(-50%\)/);
+assert.match(centeredSecuritySource, /starline-car-130-[^}]*\{[\s\S]*bottom:216px !important/);
+assert.match(centeredSecuritySource, /starline-car-683-[^}]*\{[\s\S]*bottom:232px !important/);
+assert.match(centeredSecuritySource, /\.vehicle-state-field \{[\s\S]*left:50% !important;[\s\S]*bottom:186px !important/);
+assert.doesNotMatch(centeredSecuritySource, /font-size:/, "centering pass must preserve typography floors");
+assert.doesNotMatch(centeredSecuritySource, /_eventsFromHistory|_starLineEvents|panel\/history/, "centering pass must not change history or statistics");
+assert.match(bundle, /starline-app-panel-v023/);
+assert.match(bundle, /force: Boolean\(force\)/);
+assert.match(bundle, /_loadBootstrap\(true\)\.then\(\(\) => this\._ensureHistory\(true\)\)/);
+assert.match(panel, /async_fetch_device_data/);
+assert.match(panel, /_LIVE_SECURITY_CACHE_SECONDS = 60/);
+assert.match(panel, /await _bootstrap_payload_live\(hass, entry, msg\["force"\]\)/);
+
 for (const id of ["130", "683"]) {
   for (const state of ["engine", "door-open", "hood-open", "trunk-open"]) {
     const asset = `custom_components/starline_telemetry/frontend/assets/starline-car-${id}-${state}-v1.webp`;
@@ -201,6 +218,12 @@ vm.runInThisContext(bundle, { filename: "starline-app.js" });
 const Panel = customElements.get("starline-app-panel");
 assert.ok(Panel, "stable production component must be registered");
 const instance = new Panel();
+
+assert.equal(instance._liveArmedState({ live_security: { arm: true } }), true);
+assert.equal(instance._liveArmedState({ live_security: { arm: false } }), false);
+assert.equal(instance._liveArmedState({ live_security: { arm: 1 } }), true);
+assert.equal(instance._liveArmedState({ live_security: { arm: 2 } }), false);
+assert.equal(instance._liveArmedState({}), null);
 
 instance._mobileOnly = () => true;
 instance._vehicle = () => ({ device_id: "130", name: "130-й" });

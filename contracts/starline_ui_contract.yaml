@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: 0.5.7
+version: 0.5.8
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
 repository_policy: self_contained
@@ -115,6 +115,9 @@ summary_screen:
       image_priority: [hood_open, trunk_open, doors_open, engine_running, default]
       armed_source_priority: [lock, armed, security, arm, guard]
       security_conflict_policy: any_explicit_armed_source_wins
+      current_source: starline_open_api_cached_60_seconds
+      refresh_behavior: force_current_read_only_vehicle_state
+      vehicle_horizontal_alignment: centered_by_asset_alpha_bounds
       independent_overlays: [armed_field, alarm_field, offline_desaturation]
       animated_alarm: forbidden
       textual_state_retained: true

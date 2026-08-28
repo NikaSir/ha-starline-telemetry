@@ -82,7 +82,7 @@ class StarLineAppPanelV003 extends HTMLElement {
       : "status";
   }
 
-  async _loadBootstrap() {
+  async _loadBootstrap(force = false) {
     if (!this._hass || this._loading) return;
     this._loading = true;
     this._error = null;
@@ -91,6 +91,7 @@ class StarLineAppPanelV003 extends HTMLElement {
       const entryId = this._panel?.config?.entry_id;
       this._bootstrap = await this._hass.callWS({
         type: "starline_telemetry/panel/bootstrap",
+        force: Boolean(force),
         ...(entryId ? { entry_id: entryId } : {}),
       });
       const vehicles = this._vehicles();

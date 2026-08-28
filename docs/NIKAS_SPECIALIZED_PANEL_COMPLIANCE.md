@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.5.7. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.5.8. Static bundle checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -82,3 +82,12 @@ Audit target: UI/integration 0.5.7. Static bundle checks pass; final iPhone fiel
 - All explicit StarLine security signals are evaluated; an active source wins over a conflicting inactive source so the panel cannot falsely claim that protection is removed.
 - Both vehicles and their security field move substantially upward while retaining the approved per-vehicle size and horizontal geometry.
 - Header, selector, Bottom Tab Bar, typography, zoom, history and statistics remain unchanged.
+
+## v0.5.8 centred live-security correction
+
+- Each transparent vehicle asset is centred on the photo scene with a common 50% horizontal anchor; right-edge offsets and clipping are removed.
+- Per-vehicle vertical offsets compensate for different source-image aspect ratios so default and state variants retain one visual centre.
+- Summary bootstrap reads the current `arm` value from the official read-only StarLine device-data endpoint and caches it for 60 seconds.
+- The Header refresh button forces a current read-only vehicle-state refresh instead of only reloading panel configuration.
+- The security field shares the vehicle centre; metric labels may wrap without reducing their approved font size.
+- History, statistics, navigation and zoom behavior remain unchanged.
