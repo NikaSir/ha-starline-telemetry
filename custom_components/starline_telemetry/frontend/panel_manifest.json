@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.5.6",
+  "version": "0.5.7",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "home_assistant_menu_event": "hass-toggle-menu",
@@ -92,15 +92,16 @@
       "default"
     ],
     "armed_source_priority": [
+      "lock",
       "armed",
       "security",
       "arm",
       "guard"
     ],
-    "central_lock_as_armed_source": false,
+    "security_conflict_policy": "any_explicit_armed_source_wins",
     "vehicle_geometry": {
-      "130": {"width_percent": 76, "right_percent": -3, "bottom_px": 38},
-      "683": {"width_percent": 73, "right_percent": -1, "bottom_px": 36}
+      "130": {"width_percent": 76, "right_percent": -3, "bottom_px": 126},
+      "683": {"width_percent": 73, "right_percent": -1, "bottom_px": 122}
     },
     "state_scene_overlays": [
       "armed_field",
