@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.5.8. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.5.4, NikaS UI standard v1.8 and navigation contract v1.0. Automated checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -12,7 +12,7 @@ Audit target: UI/integration 0.5.8. Static bundle checks pass; final iPhone fiel
 | Tab change returns native work scroll to top and revalidates offsets | PASS | Final `_setView()` resets offsets, native scroll and reapplies bounds while retaining scale. |
 | Interaction guard for pinch/pan | PASS | 100% leaves native pan/taps alone; two-finger pinch and enlarged pan retain pointer-cancel and post-gesture click guards. |
 | Menu and refresh use `ha-icon`; menu emits `hass-toggle-menu` | PASS | Base panel uses `mdi:menu`/`mdi:refresh`; menu dispatch is bubbling/composed. v008 installs the common mobile Header. |
-| Header UPS geometry and matching plaques | PASS | Final cascade sets 52/48 rails, 62/60 height, 44px bordered card plaques, radius 16, icons 25 and 21/12 title typography. |
+| Header UPS geometry and matching plaques | PASS | Final cascade sets 52/48 rails, 62/60 height, 44px bordered card plaques, radius 16, icons 25 and 23/14 title typography (21/13 narrow). |
 | Refresh on a matching right plaque | PASS | `.nika-refresh` uses the same card plaque as menu and `var(--primary-color)`. |
 | Fixed full-width safe-area Bottom Tab Bar using `ha-icon` | PASS | Base `nav` is edge-attached, outside `#content`, includes safe-area bottom padding, divider/shadow and uses MDI `ha-icon`. |
 | Bottom target/icon/label/active geometry | PASS | Final cascade enforces ≥52px targets, 28px icons, 12px/700 labels and 11% active fill. |
@@ -21,13 +21,35 @@ Audit target: UI/integration 0.5.8. Static bundle checks pass; final iPhone fiel
 | Repository visual identity | PASS / MANUAL | README surfaces the approved packaged icon. GitHub avatar/social preview still needs a manual repository-settings check. |
 | Optional logo/light/dark variants | GAP (non-blocking) | Only `brand/icon.png` exists. Add variants only from an approved StarLine source if contrast testing proves they are needed; do not generate replacements. |
 | Stable production module | PASS | `scripts/build_frontend_bundle.py` deterministically produces autonomous `frontend/starline-app.js`; production registration loads only that import-free module. |
+| Stable shell and telemetry patching | PASS | v019 mounts the shell once, coalesces `hass` changes to one animation frame and morphs only the active `.shell`; it never reassigns `shadowRoot.innerHTML` during routine telemetry. |
+| Lazy tab/vehicle cache | PASS | v019 caches the actual work subtree per tab/vehicle, restores the same subtree on return and preserves embedded HA map cards. |
+| Fixed Header/selector/Bottom Bar | PASS / FIELD | The phone host is height-locked and only `#content` owns scrolling. Confirm stationary coordinates during iPhone upward/downward scroll. |
+| Meaningful typography 12–25px | PASS | v019 overrides meaningful captions/statuses to at least 12px and the summary identity to 25px; 9px remains only on redundant route-schematic labels. |
+| Optional connection/freshness indicator | NOT REQUESTED / PASS | StarLine does not instantiate the canonical two-level transport/freshness indicator. Its domain-specific GSM/GPS telemetry remains a separate factual metric. |
 
 ## Remaining field checks
 
 1. Confirm native scrolling on long History/Trips/Diagnostics views at 100% in the iPhone Companion App.
-2. Confirm the fixed `130 / 683` selector on all four views and the Header and Bottom Tab Bar at every scale.
+2. Confirm the persistent vehicle selector on History/Trips/Diagnostics, its hidden state on Summary, and the stationary Header and Bottom Tab Bar at every scale.
 3. Confirm focal pinch, axis locks, long press, `more-info`, reset toast and safe areas on device.
-4. Confirm all state-scene variants on both cars and verify that image changes do not shift the vehicle position.
+4. Leave the panel open through repeated telemetry polls and move between cached tabs; confirm there is no white flash, image remount or map reload.
+
+## v0.5.4 UI standard v1.7 delta
+
+- v019 extends the current v0.5.3 Summary/scene/security implementation; none of those visual or alarm-state fixes are reverted.
+- Header, optional vehicle selector, one viewport/canvas and Bottom Tab Bar remain mounted while routine telemetry patches the existing active work subtree.
+- Work views are lazily cached by tab and selected vehicle. A cached embedded map is detached and restored around state patching instead of being recreated on every poll.
+- `hass` updates are coalesced to at most one animation frame. Unchanged state signatures do not write the DOM.
+- Tab changes return native scroll and transform offsets to the page start while retaining the selected scale; vehicle changes restore that vehicle's locally persisted transform before its work view is shown.
+- The phone application shell is height-locked so the outer Home Assistant document cannot become the scrolling surface.
+- Meaningful text follows the 12–25px envelope, with a 9px exception only for redundant route-schematic labels.
+- The optional two-level connection/freshness indicator remains absent from StarLine until explicitly requested.
+
+## UI standard v1.8 navigation delta
+
+- `/starline` remains the sole registered public route; `/dashboard-starline` is invalid.
+- House return is normalized to `/dashboard-house-v11/home`.
+- The one-shot source handoff consumes both route and timestamp and never uses browser-history back navigation.
 
 ## v0.5.1 history and typography delta
 
@@ -52,42 +74,3 @@ Audit target: UI/integration 0.5.8. Static bundle checks pass; final iPhone fiel
 - Armed state reads `Охрана / Включена` on a blue-tinted shield plaque. Disarmed remains neutral and alarm remains red.
 - The fit is recalculated when the content viewport changes and does not alter the transform-owned scaling model.
 - History sources, event timestamps, action labels and statistics remain unchanged.
-
-## v0.5.4 split Summary pages
-
-- The combined two-card Summary is split into separate initial pages for 130 and 683.
-- The fixed vehicle selector changes the active initial page without changing the Bottom Tab Bar.
-- One selected vehicle card receives the full available Summary height; approved metrics, status rows, connection and security states remain unchanged.
-- History and statistics behavior remain unchanged.
-
-## v0.5.5 state-aware scene delta
-
-- Each car has packaged engine-running, doors-open, hood-open and trunk-open image variants.
-- Image selection follows a deterministic priority: hood, trunk, doors, engine, default.
-- Armed and alarm fields are independent static overlays; unavailable state desaturates the scene without hiding it.
-- Security no longer reports the ambiguous fallback `Норма`; missing armed-state telemetry is shown as `Нет данных`.
-- Operational values may use two lines without reducing the approved typography floor.
-- History and statistics behavior remain unchanged.
-
-## v0.5.6 security and geometry delta
-
-- Armed state uses the dedicated StarLine security entity; central locking cannot report security state.
-- Alarm still overrides the ordinary armed field and missing security telemetry remains explicit.
-- Per-vehicle geometry enlarges and lowers every state image while retaining a stable wheel line.
-- Header, fixed vehicle selector, Bottom Tab Bar, typography floors, zoom, history and statistics remain unchanged.
-
-## v0.5.7 armed state and scene-height correction
-
-- Home Assistant core StarLine `lock` is restored as an official security-mode source because the core entity maps directly to the StarLine `arm` state.
-- All explicit StarLine security signals are evaluated; an active source wins over a conflicting inactive source so the panel cannot falsely claim that protection is removed.
-- Both vehicles and their security field move substantially upward while retaining the approved per-vehicle size and horizontal geometry.
-- Header, selector, Bottom Tab Bar, typography, zoom, history and statistics remain unchanged.
-
-## v0.5.8 centred live-security correction
-
-- Each transparent vehicle asset is centred on the photo scene with a common 50% horizontal anchor; right-edge offsets and clipping are removed.
-- Per-vehicle vertical offsets compensate for different source-image aspect ratios so default and state variants retain one visual centre.
-- Summary bootstrap reads the current `arm` value from the official read-only StarLine device-data endpoint and caches it for 60 seconds.
-- The Header refresh button forces a current read-only vehicle-state refresh instead of only reloading panel configuration.
-- The security field shares the vehicle centre; metric labels may wrap without reducing their approved font size.
-- History, statistics, navigation and zoom behavior remain unchanged.
