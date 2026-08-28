@@ -4762,7 +4762,6 @@ if (!customElements.get("starline-app-panel-v023")) {
 // END starline-app-v023.js
 
 // BEGIN starline-app-v024.js
-{
 const BASE_COMPONENT = customElements.get("starline-app-panel-v023");
 const UI_VERSION = "0.5.9";
 
@@ -4770,8 +4769,11 @@ class StarLineAppPanelV024 extends BASE_COMPONENT {
   _installCommonHeader() {
     super._installCommonHeader();
     if (!this.shadowRoot) return;
-    const title = this.shadowRoot.querySelector(".nika-title span");
-    if (title) title.textContent = `Автомобили · UI v${UI_VERSION}`;
+    const title = this.shadowRoot.querySelector(".nika-title");
+    const heading = title?.querySelector("strong");
+    const subtitle = title?.querySelector("span");
+    if (heading) heading.textContent = "Автомобили";
+    if (subtitle) subtitle.textContent = `UI v${UI_VERSION}`;
   }
 
   _render() {
@@ -4854,6 +4856,5 @@ if (!customElements.get("starline-app-panel-v024")) {
 
 if (!customElements.get("starline-app-panel")) {
   customElements.define("starline-app-panel", class extends StarLineAppPanelV024 {});
-}
 }
 // END starline-app-v024.js
