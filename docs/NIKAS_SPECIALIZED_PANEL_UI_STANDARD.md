@@ -101,5 +101,6 @@ The centered two-line Header title plaque uses the LIDER reference geometry and 
 - on narrow phones: `min-width:0; width:100%; padding-inline:8px`;
 - `1px` border with primary-color mix `24%`; `16px` radius; primary-color background mix `5%`; `0 5px 16px rgba(23,45,76,.06)` shadow;
 - pressed: background mix `13%`, border mix `42%`, `0 2px 7px rgba(23,45,76,.05)`; focus-visible: `2px` primary outline and `2px` offset.
+- The focus state and pressed response are mandatory and remain visibly distinct from the default state.
 
 A transparent/plain-text title, a white-only local variant, or an integration-specific color is not conforming.
