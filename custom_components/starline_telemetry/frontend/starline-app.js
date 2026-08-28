@@ -3794,17 +3794,19 @@ if (!customElements.get("starline-app-panel-v018")) {
 const BASE_COMPONENT = customElements.get("starline-app-panel-v018");
 const UI_VERSION = "0.5.4";
 const SOURCE_ROUTE_KEY = "nikas.specialized.source_route.v1";
+const SOURCE_ROUTE_AT_KEY = "nikas.specialized.source_route_at.v1";
 const RETURN_ROUTE_KEY = "nikas.starline.return_route.v1";
-const SAFE_DEFAULT_ROUTE = "/dashboard-house";
-const SAFE_ROUTE_PREFIXES = ["/dashboard-house", "/dashboard-actions", "/dashboard-infrastructure"];
+const SAFE_DEFAULT_ROUTE = "/dashboard-house-v11/home";
 
 function safeReturnRoute(value) {
   if (!value) return null;
   try {
     const url = new URL(decodeURIComponent(String(value).trim()), window.location.origin);
     if (url.origin !== window.location.origin) return null;
-    const allowed = SAFE_ROUTE_PREFIXES.some((prefix) => url.pathname === prefix || url.pathname.startsWith(`${prefix}/`));
-    return allowed ? `${url.pathname}${url.search}${url.hash}` : null;
+    if (url.pathname === "/dashboard-house-v11" || url.pathname.startsWith("/dashboard-house-v11/")) return "/dashboard-house-v11/home";
+    if (url.pathname === "/dashboard-actions" || url.pathname.startsWith("/dashboard-actions/")) return "/dashboard-actions/home";
+    if (url.pathname === "/dashboard-infrastructure" || url.pathname.startsWith("/dashboard-infrastructure/")) return "/dashboard-infrastructure/overview";
+    return null;
   } catch (_error) {
     return null;
   }
@@ -3812,14 +3814,16 @@ function safeReturnRoute(value) {
 
 function resolveReturnRoute(panel) {
   const current = new URL(window.location.href);
-  const explicit = ["return_to", "from"]
-    .map((key) => safeReturnRoute(current.searchParams.get(key)))
-    .find(Boolean) || null;
+  const explicit = safeReturnRoute(current.searchParams.get("return_to")) || safeReturnRoute(current.searchParams.get("from"));
   let handedOff = null;
   let saved = null;
   try {
-    handedOff = safeReturnRoute(sessionStorage.getItem(SOURCE_ROUTE_KEY));
+    const handedOffAtRaw = sessionStorage.getItem(SOURCE_ROUTE_AT_KEY);
+    const handedOffAt = Number(handedOffAtRaw);
+    const handedOffFresh = handedOffAtRaw === null || (Number.isFinite(handedOffAt) && Date.now() - handedOffAt <= 30_000);
+    handedOff = handedOffFresh ? safeReturnRoute(sessionStorage.getItem(SOURCE_ROUTE_KEY)) : null;
     sessionStorage.removeItem(SOURCE_ROUTE_KEY);
+    sessionStorage.removeItem(SOURCE_ROUTE_AT_KEY);
     saved = safeReturnRoute(sessionStorage.getItem(RETURN_ROUTE_KEY));
   } catch (_error) {}
   const configured = safeReturnRoute(panel?._panel?.config?.parent_route || panel?._panel?.config?.parent_path);
@@ -4213,7 +4217,6 @@ class StarLineAppPanelV019 extends BASE_COMPONENT {
       .nika-title span { font-size:14px !important; line-height:1.1 !important; font-weight:560 !important; }
       .nika-title { min-height:44px !important; padding:5px 14px !important; border:1px solid var(--divider-color,var(--border)) !important; border-radius:16px !important; background:var(--card-background-color,var(--surface)) !important; color:var(--primary-text-color) !important; box-shadow:0 4px 14px rgba(23,45,76,.06) !important; font:inherit !important; cursor:pointer !important; }
       .nika-title:active { transform:scale(.985); }
-      .nika-title:focus-visible { outline:2px solid var(--primary-color,var(--accent)); outline-offset:2px; }
 
       .notice,.vehicle-menu span,.telemetry-chip span,.freshness,
       .vehicle-caption span,.last-event>span:not(.event-date),.last-event>strong,
