@@ -1,5 +1,6 @@
 # StarLine package documentation
 
+- `CHANGELOG_0.6.2.md` — strict source hand-off, data truth and deterministic bundle verification.
 - `CHANGELOG_0.6.1.md` — normalized visible vehicle scale, centre and wheel-line geometry.
 - `CHANGELOG_0.6.0.md` — unified stable runtime and NikaS UI standard v1.7 rebuild.
 - `REPOSITORY_OWNERSHIP.md` — single-repository ownership policy.

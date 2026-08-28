@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: 0.6.1
+version: 0.6.2
 ui_standard: 1.7
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry

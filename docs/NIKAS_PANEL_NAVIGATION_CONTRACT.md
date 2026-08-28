@@ -1,4 +1,4 @@
-# NikaS Panel Navigation and Return Contract v1.0
+# NikaS Panel Navigation and Return Contract v1.1
 
 **Status:** REQUIRED
 **Canonical owner:** `NikaSir/ha-contract-generated-ui`
@@ -68,8 +68,11 @@ Only these values are valid:
 - `/dashboard-actions/*` normalizes to `/dashboard-actions/home`.
 - `/dashboard-infrastructure/*` normalizes to `/dashboard-infrastructure/overview`.
 - `/dashboard-house` and `/dashboard-house/*` are never stored as the NikaS base source.
-- The hand-off is one-shot and both keys are removed after the specialized panel reads them.
-- A base shell must not continuously overwrite the hand-off during telemetry, shell synchronization or DOM reconciliation. The timestamp is a defensive expiry guard, not a substitute for click-time capture; a hand-off older than 30 seconds is rejected.
+- Both hand-off values are required. A route without a timestamp, a timestamp without a route, a non-finite timestamp, a timestamp from the future or a hand-off older than 30 seconds is invalid.
+- The valid age interval is inclusive: `0 <= Date.now() - timestamp <= 30_000`.
+- The hand-off is one-shot. The specialized panel reads and removes both keys before validating candidates, including when an explicit `return_to` or `from` wins.
+- A partial storage write is rolled back by removing both keys. Storage failure does not block navigation; the specialized panel uses its configured safe fallback.
+- A base shell must not continuously overwrite the hand-off during telemetry, shell synchronization or DOM reconciliation. The timestamp is a defensive expiry guard, not a substitute for click-time capture.
 
 ## 4. Return-route capture
 
@@ -122,14 +125,15 @@ CI must fail when any of the following is false:
 3. every specialized panel has a declared visible base entry;
 4. no source or fallback uses `/dashboard-house`, `/dashboard-starline` or a registry identifier;
 5. all three base source routes normalize exactly as specified;
-6. the hand-off is consumed once;
+6. both hand-off values are required, validated as a pair and consumed once;
 7. direct open uses the declared safe fallback;
 8. invalid or external routes are rejected;
 9. the center title is a semantic version-only return button;
 10. no runtime source contains `history.back()`;
 11. repeated telemetry and tab changes preserve the captured route and handler;
 12. JavaScript syntax, package validation, HACS and Hassfest pass.
-13. every declared base-panel outbound handler writes the source hand-off immediately before navigation, and no ambient render/sync path refreshes it.
+13. every declared base-panel outbound handler writes the source hand-off immediately before navigation, rolls back a partial write and no ambient render/sync path refreshes it;
+14. missing, non-finite, expired and future timestamps are rejected.
 
 A missing, orphaned or mismatched public route is a blocking defect.
 

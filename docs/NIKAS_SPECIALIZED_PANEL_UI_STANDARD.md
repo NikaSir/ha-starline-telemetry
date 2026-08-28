@@ -1,4 +1,4 @@
-# NikaS Specialized Panel UI Standard v1.8
+# NikaS Specialized Panel UI Standard v1.9
 
 **Status:** REQUIRED
 **Canonical source:** `NikaSir/ha-contract-generated-ui`
@@ -157,7 +157,29 @@ The two-level indicator is introduced only by an explicit product request. It is
 - No polling loop may rebuild the active tab. Time-only displays patch their own text nodes.
 - A full-screen loading frame is allowed only during initial mount. Later loss, staleness and recovery patch the mounted content in place.
 
-## 10. Brand and repository identity
+## 10. Data truth and command safety
+
+- A panel renders facts only from Home Assistant state objects, integration-owned APIs/coordinators or the Home Assistant entity/device registries. Frontend code must not invent entity IDs, raw device datapoints, capabilities, samples or success states.
+- Entity mapping is supplied by the integration, panel configuration or registry discovery. A hard-coded entity ID is allowed only when it is an explicit, tested part of that integration's public contract.
+- Missing, malformed, `unknown` and `unavailable` data are rendered explicitly and never receive a healthy tone. A preserved last-known sample remains visibly stale until a newer successful sample is accepted.
+- Derived values identify their factual inputs and fail closed when those inputs are absent. The UI must not replace an unknown value with zero, an optimistic default or fabricated history.
+- Read-only panels remain read-only. A refresh action may request new telemetry but must not masquerade as a device command.
+- A write action is allowed only through a registered integration service or a discovered Home Assistant entity capability. It is disabled when its target or capability is unavailable, prevents duplicate submission, awaits completion and exposes busy/error feedback without inventing success.
+- Secrets, raw credentials and vendor tokens never enter panel configuration, DOM attributes, logs or frontend bundles.
+- Every repository declares its data source and command policy in `.nikas-ui-standard.json` and verifies the product-specific mapping in tests.
+
+## 11. Production bundle and version coherence
+
+- Every specialized panel has exactly one shipped JavaScript `production_entrypoint`. `module_url` points only to that entrypoint with deterministic cache busting tied to the current UI version.
+- The production entrypoint is autonomous: it contains no runtime `import`, dynamic `import()` or `export`, and it does not load a previous UI module, remote script, stylesheet or CDN dependency. Local versioned artwork may remain a separately packaged asset.
+- Historical source layers may be composed at build time only when the generated entrypoint contains one active shell, one active Header-return implementation and no superseded zoom or navigation engine.
+- `runtime_files` lists only files executed by Home Assistant. Build inputs are declared separately as `build_source_files`; documentation and test fixtures are never presented as runtime.
+- Generated bundles are deterministic. CI regenerates them and fails on a diff, or invokes an equivalent `--check` mode that fails when the tracked bundle is stale.
+- The visible `UI vX.Y.Z`, configured `ui_version`, panel manifest, panel contract, registration/cache key and current web-component name describe the same release. A runtime change that affects behavior increments the UI version and cache key.
+- The production bundle is syntax-checked directly. Tests reject runtime imports, duplicate current component registration and more than one active shell/viewport.
+- Styles required for the shell are bundled or shipped locally with the same deterministic version policy. Runtime network failure must not remove Header, navigation or core state presentation.
+
+## 12. Brand and repository identity
 
 - Every integration repository ships a recognizable integration brand asset.
 - A packaged `custom_components/<domain>/brand/icon.png` is mandatory; it is the minimum HACS brand asset and must not be an empty placeholder.
@@ -167,7 +189,7 @@ The two-level indicator is introduced only by an explicit product request. It is
 - Header does not display the brand icon; it is for repository/HACS/HA identity, sidebar/launcher and suitable domain cards.
 - Changed raster assets use deterministic cache/version handling where served by the panel.
 
-## 11. Required automated guards
+## 13. Required automated guards
 
 Repository tests or static checks must verify:
 
@@ -185,11 +207,15 @@ Repository tests or static checks must verify:
 12. an optional connection indicator, when requested, uses the canonical transport/freshness vocabulary and status-tinted plaque;
 13. the center title is a two-line `44px`+ semantic button, contains no arrow or separate Back label and retains geometric centering;
 14. source-route capture follows `NIKAS_PANEL_NAVIGATION_CONTRACT.md`, uses the three canonical base entry routes, writes the common session hand-off at outbound click/keyboard time, consumes it once, performs explicit HA navigation and contains no `history.back()`;
-15. JavaScript syntax, package validation, HACS and Hassfest pass.
+15. the hand-off route and timestamp are a required pair, reject missing, invalid, expired and future timestamps, and are both removed before candidate selection;
+16. the production entrypoint is the only runtime file, is autonomous and is reproducible from its declared build inputs;
+17. UI version, manifest/contract, component registration and cache key stay coherent;
+18. unknown/unavailable data and product command policy are explicit and fail closed;
+19. JavaScript syntax, package validation, HACS and Hassfest pass.
 
 Each repository also maintains `docs/NIKAS_SPECIALIZED_PANEL_COMPLIANCE.md` (or an equivalent explicit record). Unimplemented runtime behavior is recorded as `GAP`, never assumed to pass from documentation alone.
 
-## 12. Mandatory phone acceptance
+## 14. Mandatory phone acceptance
 
 - long diagnostics pages scroll vertically at 100%;
 - 100% cannot move horizontally or be pulled away from the top origin;
@@ -209,8 +235,10 @@ Each repository also maintains `docs/NIKAS_SPECIALIZED_PANEL_COMPLIANCE.md` (or 
 - loss/recovery changes telemetry and any enabled indicator in place; preserved samples are visibly stale;
 - `Дом сейчас` and StarLine contain no unrequested two-level connection indicator.
 - repeated telemetry and tab changes do not change the captured Header return destination or replace its click handler.
+- an unavailable target cannot be commanded and never flashes an optimistic success state;
+- a missing or stale hand-off timestamp falls back safely instead of reusing an old source route.
 
-## 13. Publication
+## 15. Publication
 
 - NikaS panel and integration work is published through traceable commits, branches and pull requests.
 - GitHub Releases are not used.

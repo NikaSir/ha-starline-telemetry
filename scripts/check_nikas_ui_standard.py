@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 
@@ -25,12 +26,16 @@ def read_relative(path: str) -> str:
 
 def main() -> None:
     config = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
-    require(config.get("version") == "1.8", "NikaS UI standard version must be 1.8")
+    require(config.get("version") == "1.9", "NikaS UI standard version must be 1.9")
+    require(
+        config.get("navigation_contract_version") == "1.1",
+        "NikaS navigation contract version must be 1.1",
+    )
 
     standard_path = config.get("standard_path", "docs/NIKAS_SPECIALIZED_PANEL_UI_STANDARD.md")
     standard = read_relative(standard_path)
     digest = hashlib.sha256(standard.encode("utf-8")).hexdigest()
-    require(digest == config.get("standard_sha256"), "local NikaS UI standard is not the canonical v1.8 copy")
+    require(digest == config.get("standard_sha256"), "local NikaS UI standard is not the canonical v1.9 copy")
     navigation_contract = read_relative(config["navigation_contract_path"])
     navigation_digest = hashlib.sha256(navigation_contract.encode("utf-8")).hexdigest()
     require(
@@ -48,6 +53,8 @@ def main() -> None:
         "focus state and pressed response",
         "same click/keyboard handler",
         "Ambient shell synchronization",
+        "Data truth and command safety",
+        "Production bundle and version coherence",
     ):
         require(clause in standard, f"canonical Header-return clause missing: {clause}")
     for clause in (
@@ -57,6 +64,9 @@ def main() -> None:
         "/starline",
         "nikas.specialized.source_route_at.v1",
         "same click/keyboard handler",
+        "Both hand-off values are required",
+        "timestamp from the future",
+        "partial storage write is rolled back",
         "A missing, orphaned or mismatched public route is a blocking defect.",
     ):
         require(clause in navigation_contract, f"canonical navigation clause missing: {clause}")
@@ -79,6 +89,8 @@ def main() -> None:
         require(not runtime_files, "readiness-only repository must not claim a panel runtime")
         compliance = read_relative(config["compliance_path"])
         require("GAP" in compliance, "readiness-only repository must record the absent runtime as GAP")
+        require("data truth" in compliance.lower(), "readiness record must cover the data-truth GAP")
+        require("autonomous" in compliance.lower(), "readiness record must cover the autonomous-bundle GAP")
         return
 
     require(runtime_files, f"{role} repository must declare checked runtime_files")
@@ -101,11 +113,14 @@ def main() -> None:
         require(isinstance(markers, dict) and markers, "base shell must declare source_handoff markers")
         for name in (
             "storage_write_marker",
+            "timestamp_write_marker",
+            "rollback_marker",
             "route_normalizer_marker",
             "specialized_route_marker",
             "capture_marker",
             "navigation_marker",
             "delegation_marker",
+            "contract_version_marker",
         ):
             marker = markers.get(name)
             require(isinstance(marker, str) and marker, f"source_handoff.{name} must be configured")
@@ -134,6 +149,11 @@ def main() -> None:
             require(token in sources, f"canonical specialized-panel route missing from base registry: {token}")
         return
 
+    header_return_runtime_path = config.get("header_return_runtime_path", production_entrypoint)
+    header_return_runtime = (
+        read_relative(header_return_runtime_path) if header_return_runtime_path else sources
+    )
+
     for token in (
         "return_to",
         "from",
@@ -148,9 +168,20 @@ def main() -> None:
         "document.referrer",
         "parent_route",
     ):
-        require(token in sources, f"specialized Header-return runtime missing token: {token}")
+        require(token in header_return_runtime, f"specialized Header-return runtime missing token: {token}")
     require("history.back(" not in sources, "history.back() is forbidden by the NikaS routing contract")
-    require("<button" in sources or 'createElement("button")' in sources, "center title must be a semantic button")
+    require(
+        re.search(r"/dashboard-starline(?:[/'\"?#]|$)", sources) is None,
+        "retired /dashboard-starline route is forbidden",
+    )
+    require(
+        re.search(r"/dashboard-house(?:[/'\"?#]|$)", sources) is None,
+        "legacy /dashboard-house route is forbidden as a specialized-panel return",
+    )
+    require(
+        "<button" in header_return_runtime or 'createElement("button")' in header_return_runtime,
+        "center title must be a semantic button",
+    )
 
     markers = config.get("header_return", {})
     require(isinstance(markers, dict) and markers, "specialized panel must declare header_return markers")
@@ -161,10 +192,12 @@ def main() -> None:
         "pressed_marker",
         "explicit_precedence_marker",
         "capture_once_marker",
+        "timestamp_required_marker",
+        "future_timestamp_rejection_marker",
     ):
         marker = markers.get(name)
         require(isinstance(marker, str) and marker, f"header_return.{name} must be configured")
-        require(marker in sources, f"specialized Header-return marker missing: {marker}")
+        require(marker in header_return_runtime, f"specialized Header-return marker missing: {marker}")
 
     version_marker = markers["version_marker"]
     require("UI v" in version_marker, "header_return.version_marker must identify the exact UI version line")
@@ -172,6 +205,102 @@ def main() -> None:
 
     for marker in config.get("forbidden_runtime_markers", []):
         require(marker not in sources, f"forbidden specialized-panel runtime marker present: {marker}")
+
+    artifact_kind = config.get("artifact_kind", "production")
+    require(artifact_kind in {"production", "reference"}, "unsupported specialized artifact_kind")
+    if artifact_kind == "reference":
+        return
+
+    require(production_entrypoint, "production specialized panel must declare production_entrypoint")
+    require(
+        runtime_files == [production_entrypoint],
+        "runtime_files must contain only the shipped production_entrypoint",
+    )
+    bundle_contract = config.get("bundle_contract", {})
+    require(bundle_contract.get("autonomous") is True, "production bundle must be autonomous")
+    require(bundle_contract.get("runtime_imports") is False, "production bundle must forbid runtime imports")
+    require(bundle_contract.get("deterministic") is True, "production bundle must be deterministic")
+    require(
+        bundle_contract.get("cache_busting") == "ui_version",
+        "production bundle cache busting must follow ui_version",
+    )
+
+    entrypoint_source = read_relative(production_entrypoint)
+    executable_lines = "\n".join(
+        line for line in entrypoint_source.splitlines() if not line.lstrip().startswith("//")
+    )
+    require(
+        re.search(r"^\s*(?:import|export)\b", executable_lines, re.MULTILINE) is None,
+        "production entrypoint contains an ES module import/export",
+    )
+    require(
+        re.search(r"\bimport\s*\(", executable_lines) is None,
+        "production entrypoint contains a dynamic runtime import",
+    )
+
+    build_source_files = config.get("build_source_files", [])
+    require(isinstance(build_source_files, list), "build_source_files must be a list")
+    require(
+        len(build_source_files) == len(set(build_source_files)),
+        "build_source_files must not contain duplicates",
+    )
+    for path in build_source_files:
+        read_relative(path)
+    bundled_inputs = set(
+        re.findall(r"^// BEGIN ([^\n]+)$", entrypoint_source, re.MULTILINE)
+    )
+    undeclared_inputs = bundled_inputs.difference(build_source_files)
+    require(
+        not undeclared_inputs,
+        "production bundle contains undeclared build inputs: "
+        + ", ".join(sorted(undeclared_inputs)),
+    )
+
+    ui_version = config.get("ui_version")
+    require(
+        isinstance(ui_version, str) and re.fullmatch(r"\d+\.\d+\.\d+", ui_version),
+        "production specialized panel must declare numeric ui_version",
+    )
+    require(ui_version in entrypoint_source, "production entrypoint does not contain configured ui_version")
+    require(
+        isinstance(config.get("web_component"), str) and config["web_component"],
+        "production specialized panel must declare web_component",
+    )
+    require(
+        config["web_component"] in entrypoint_source,
+        "production entrypoint does not register the configured web_component",
+    )
+
+    data_truth = config.get("data_truth", {})
+    require(
+        data_truth.get("entity_source") == "integration_or_ha_registry",
+        "data truth entity_source must be integration_or_ha_registry",
+    )
+    require(data_truth.get("unknown_unavailable") == "explicit", "unknown/unavailable policy must be explicit")
+    require(data_truth.get("invented_entity_ids") is False, "invented entity IDs are forbidden")
+    require(
+        data_truth.get("fixed_entity_ids") in {"none", "tested_public_contract_only"},
+        "fixed entity IDs must be absent or an explicit tested public contract",
+    )
+    command_policy = data_truth.get("command_policy")
+    require(
+        command_policy in {"read_only", "refresh_only", "integration_services", "entity_services"},
+        "unsupported command policy",
+    )
+    lowered_source = entrypoint_source.lower()
+    require("unknown" in lowered_source, "production runtime must render unknown data explicitly")
+    require("unavailable" in lowered_source, "production runtime must render unavailable data explicitly")
+
+    if command_policy == "read_only":
+        forbidden_commands = data_truth.get("forbidden_command_markers", [])
+        require(forbidden_commands, "read-only panel must declare forbidden command markers")
+        for marker in forbidden_commands:
+            require(marker not in entrypoint_source, f"read-only panel contains command marker: {marker}")
+    else:
+        command_markers = data_truth.get("command_markers", [])
+        require(command_markers, "command-capable panel must declare runtime command markers")
+        for marker in command_markers:
+            require(marker in entrypoint_source, f"declared command marker missing: {marker}")
 
 
 if __name__ == "__main__":

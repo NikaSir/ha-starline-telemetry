@@ -1,4 +1,4 @@
-const UI_VERSION = "0.6.1";
+const UI_VERSION = "0.6.2";
 const ASSET_BASE = "/starline_telemetry_static/assets";
 const EVENT_WINDOW_HOURS = 24;
 const TRIP_WINDOW_HOURS = 72;
@@ -65,11 +65,16 @@ function captureReturnRoute(configured) {
   let handedOff = null;
   let saved = null;
   try {
+    const handedOffRaw = sessionStorage.getItem(SOURCE_ROUTE_KEY);
     const handedOffAtRaw = sessionStorage.getItem(SOURCE_ROUTE_AT_KEY);
     const handedOffAt = Number(handedOffAtRaw);
-    const fresh = handedOffAtRaw === null
-      || (Number.isFinite(handedOffAt) && Date.now() - handedOffAt <= SOURCE_ROUTE_TTL_MS);
-    handedOff = fresh ? safeBaseRoute(sessionStorage.getItem(SOURCE_ROUTE_KEY)) : null;
+    const handedOffAge = Date.now() - handedOffAt;
+    const fresh = handedOffRaw !== null
+      && handedOffAtRaw !== null
+      && Number.isFinite(handedOffAt)
+      && handedOffAge >= 0
+      && handedOffAge <= SOURCE_ROUTE_TTL_MS;
+    handedOff = fresh ? safeBaseRoute(handedOffRaw) : null;
     sessionStorage.removeItem(SOURCE_ROUTE_KEY);
     sessionStorage.removeItem(SOURCE_ROUTE_AT_KEY);
     saved = safeBaseRoute(sessionStorage.getItem(RETURN_ROUTE_KEY));

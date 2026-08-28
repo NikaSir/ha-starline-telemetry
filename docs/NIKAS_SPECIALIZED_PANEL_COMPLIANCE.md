@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.6.1 against NikaS specialized-panel standard v1.8 and Navigation Contract v1.0. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.6.2 against NikaS specialized-panel standard v1.9 and Navigation Contract v1.1. Static bundle checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -25,6 +25,8 @@ Audit target: UI/integration 0.6.1 against NikaS specialized-panel standard v1.8
 | Stable shell and point patching | PASS | The constructor mounts Header, selector, viewport/canvas and navigation once; routine `hass` changes coalesce into `_patchAll()` without assigning `shadowRoot.innerHTML`. |
 | Lazy cached views and stable images/maps | PASS | Views and per-vehicle panes are created once and reused; car `src` changes only when the scene asset changes and map cards are cached per vehicle. |
 | Safe title navigation | PASS | The title normalizes only the three canonical v11 base entries, consumes the timestamped one-shot hand-off, persists the accepted route and uses `history.pushState()` plus `location-changed`; it never calls `history.back()`. |
+| Strict source hand-off | PASS | Route and timestamp are required together; invalid, stale and future timestamps are consumed and rejected before saved/referrer/configured fallbacks. |
+| Data truth and command policy | PASS | The panel is read-only, resolves factual integration/registry entities, keeps unknown/unavailable explicit and contains no Home Assistant service call. |
 
 ## Remaining field checks
 

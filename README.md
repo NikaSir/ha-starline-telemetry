@@ -44,7 +44,7 @@ In core-bridge mode, the request reuses the active core StarLine SLNet session i
 
 ## Current baseline
 
-Internal integration version: `0.6.1`
+Internal integration version: `0.6.2`
 
 Platforms:
 
@@ -174,7 +174,7 @@ See:
 8. The native panel remains read-only even when its compatibility source exposes writable entities.
 9. Event history uses only the official read-only StarLine journal endpoint, under a separate quota ceiling, with Recorder as a state-transition-only fallback.
 10. Corresponding panel typography is never smaller than the official StarLine mobile application reference.
-11. The UI follows NikaS specialized-panel standard v1.8 and Navigation Contract v1.0: one fixed shell, one transform canvas, deterministic source return, cached views and point telemetry patches without routine DOM remounts.
+11. The UI follows NikaS specialized-panel standard v1.9 and Navigation Contract v1.1: one fixed shell, one transform canvas, deterministic source return, cached views and point telemetry patches without routine DOM remounts.
 
 ## License
 
