@@ -136,6 +136,35 @@ async def async_fetch_device_events(
     return _event_rows(payload, stage=stage)
 
 
+async def async_fetch_device_data(
+    session: ClientSession,
+    slnet_token: str,
+    device_id: int | str,
+) -> dict[str, Any]:
+    """Read one current device snapshot using an existing SLNet token."""
+    stage = "device_data"
+    payload = await _async_request_json(
+        session,
+        "GET",
+        f"{STARLINE_API_BASE_URL}/json/v3/device/{device_id}/data",
+        stage=stage,
+        headers={"Cookie": f"slnet={slnet_token}"},
+    )
+    code = _api_code(payload)
+    if code != 200:
+        raise StarLineRequestError(
+            stage,
+            str(payload.get("codestring", "StarLine device-data request failed")),
+            api_code=code,
+        )
+    data = payload.get("data")
+    if not isinstance(data, dict):
+        raise StarLineRequestError(
+            stage, "StarLine returned no device data", api_code=code
+        )
+    return data
+
+
 async def async_fetch_event_descriptions(
     session: ClientSession,
 ) -> dict[int, str]:

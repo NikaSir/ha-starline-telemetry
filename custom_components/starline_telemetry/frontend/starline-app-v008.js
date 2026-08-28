@@ -102,7 +102,7 @@ class StarLineAppPanelV008 extends BASE_COMPONENT {
       refresh.innerHTML = `<ha-icon icon="mdi:refresh"></ha-icon>`;
       diagnostics.replaceWith(refresh);
       refresh.addEventListener("click", () => {
-        this._loadBootstrap().then(() => this._ensureHistory(true));
+        this._loadBootstrap(true).then(() => this._ensureHistory(true));
       });
     }
   }
