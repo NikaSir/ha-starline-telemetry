@@ -44,7 +44,7 @@ In core-bridge mode, the request reuses the active core StarLine SLNet session i
 
 ## Current baseline
 
-Internal integration version: `0.5.5`
+Internal integration version: `0.5.6`
 
 Platforms:
 

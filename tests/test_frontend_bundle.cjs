@@ -10,10 +10,11 @@ const visualSource = fs.readFileSync("custom_components/starline_telemetry/front
 const sceneSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v018.js", "utf8");
 const splitSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v019.js", "utf8");
 const stateSceneSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v020.js", "utf8");
+const securityGeometrySource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v021.js", "utf8");
 
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
-assert.equal(manifest.version, "0.5.5");
+assert.equal(manifest.version, "0.5.6");
 assert.equal(manifest.zoom.native_vertical_scroll_at_or_below_percent, 100);
 assert.equal(manifest.zoom.one_finger_pan, "above_100_percent_on_overflowing_axes_only");
 assert.deepEqual(manifest.typography.floors_px, {
@@ -48,6 +49,12 @@ assert.deepEqual(manifest.summary.state_scene_image_priority, [
   "engine_running",
   "default",
 ]);
+assert.deepEqual(manifest.summary.armed_source_priority, ["armed", "security", "arm", "guard"]);
+assert.equal(manifest.summary.central_lock_as_armed_source, false);
+assert.deepEqual(manifest.summary.vehicle_geometry, {
+  130: { width_percent: 76, right_percent: -3, bottom_px: 38 },
+  683: { width_percent: 73, right_percent: -1, bottom_px: 36 },
+});
 assert.match(panel, /starline-app\.js\?v=/);
 assert.doesNotMatch(bundle, /^import\s+/m, "production bundle must have no runtime imports");
 assert.match(bundle, /customElements\.define\("starline-app-panel"/);
@@ -116,6 +123,16 @@ assert.match(stateSceneSource, /.vehicle-state-field\.armed[\s\S]*\.vehicle-stat
 assert.doesNotMatch(stateSceneSource, /animation:/, "alarm and security fields must remain static");
 assert.doesNotMatch(stateSceneSource, /_eventsFromHistory|_starLineEvents|panel\/history/, "state-scene pass must not change history or statistics");
 assert.match(bundle, /starline-app-panel-v020/);
+
+assert.match(securityGeometrySource, /\["armed", "security", "arm", "guard"\]/);
+assert.doesNotMatch(securityGeometrySource, /\["lock", "armed"/);
+assert.match(securityGeometrySource, /const field = state\.alarm === true \? "alarm" : armed === true \? "armed" : "none"/);
+assert.match(securityGeometrySource, /starline-car-130-[^}]*\{[\s\S]*width:76% !important/);
+assert.match(securityGeometrySource, /starline-car-683-[^}]*\{[\s\S]*width:73% !important/);
+assert.match(securityGeometrySource, /bottom:38px !important/);
+assert.doesNotMatch(securityGeometrySource, /font-size:/, "security and geometry pass must preserve typography floors");
+assert.doesNotMatch(securityGeometrySource, /_eventsFromHistory|_starLineEvents|panel\/history/, "security and geometry pass must not change history or statistics");
+assert.match(bundle, /starline-app-panel-v021/);
 
 for (const id of ["130", "683"]) {
   for (const state of ["engine", "door-open", "hood-open", "trunk-open"]) {
@@ -238,6 +255,17 @@ instance._online = originalOnline;
 instance._isLocked = originalIsLocked;
 instance._isOn = originalIsOn;
 const originalHass = instance._hass;
+instance._hass = {
+  states: {
+    "binary_sensor.central_lock": { state: "off" },
+    "binary_sensor.armed": { state: "on" },
+  },
+};
+assert.equal(
+  instance._sceneState({ entities: { lock: "binary_sensor.central_lock", armed: "binary_sensor.armed" } }).armed,
+  true,
+  "central lock must not override the dedicated armed state",
+);
 instance._hass = { states: { "binary_sensor.arm_state": { state: "on" } } };
 assert.equal(
   instance._sceneState({ entities: { arm_state: "binary_sensor.arm_state" } }).armed,
