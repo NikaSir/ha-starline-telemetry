@@ -10,14 +10,14 @@ const source = fs.readFileSync("custom_components/starline_telemetry/frontend/st
 const bundle = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app.js", "utf8");
 const builder = fs.readFileSync("scripts/build_frontend_bundle.py", "utf8");
 
-assert.equal(integration.version, "0.6.2");
-assert.equal(manifest.version, "0.6.2");
+assert.equal(integration.version, "0.6.3");
+assert.equal(manifest.version, "0.6.3");
 assert.equal(manifest.ui_standard, "1.9");
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
 assert.equal(manifest.runtime_architecture, "single_stable_component_point_patching");
 assert.equal(manifest.shell.header.top_safe_area, "env(safe-area-inset-top)");
-assert.match(constants, /PANEL_VERSION = "0\.6\.2-ui-standard-v1\.9"/);
+assert.match(constants, /PANEL_VERSION = "0\.6\.3-ui-standard-v1\.9"/);
 assert.match(constants, /PANEL_PARENT_ROUTE = "\/dashboard-house-v11\/home"/);
 assert.match(panel, /starline-app\.js\?v=/);
 assert.match(panel, /read_only.*True/);
@@ -89,14 +89,17 @@ assert.match(source, /security-field\.armed,.security-field\.alarm\{opacity:1\}/
 assert.match(source, /border-bottom-color:transparent/);
 assert.equal(manifest.summary.vehicle_geometry.mode, "visible_alpha_frame");
 assert.equal(manifest.summary.vehicle_geometry.visible_width_percent, 72);
+assert.deepEqual(manifest.summary.vehicle_geometry.visible_height_scale, { "130": 1.05, "683": 1 });
 assert.equal(manifest.summary.vehicle_geometry.horizontal, "visible_alpha_center");
 assert.equal(manifest.summary.vehicle_geometry.wheel_line_bottom_px, 167);
 assert.equal(manifest.summary.vehicle_geometry.narrow_wheel_line_bottom_px, 161);
 assert.equal(manifest.summary.scene_height_source, "remaining_fixed_shell_grid_viewport");
 assert.equal(manifest.summary.status_row_height_px, 74);
 assert.equal(manifest.summary.status_value_lines, 2);
+assert.equal(manifest.summary.operational_value_layout, "full_width_second_line");
 assert.equal(manifest.summary.security_field_lower_edge, "open_and_faded");
 assert.match(source, /const CAR_VISIBLE_WIDTH_PERCENT = 72/);
+assert.match(source, /const CAR_VISIBLE_HEIGHT_SCALE = Object\.freeze\(\{ "130": 1\.05, "683": 1 \}\)/);
 assert.match(source, /const CAR_WHEEL_LINE_BOTTOM_PX = 167/);
 assert.match(source, /summary-car-frame\{[^}]*bottom:\$\{CAR_WHEEL_LINE_BOTTOM_PX\}px[^}]*width:\$\{CAR_VISIBLE_WIDTH_PERCENT\}%/);
 assert.match(source, /summary-car-frame\{bottom:161px\}/);
@@ -108,6 +111,9 @@ assert.doesNotMatch(source, /summary-hero\{[^}]*100dvh/);
 assert.match(source, /mask-image:linear-gradient\(to bottom,#000 0 80%,transparent 100%\)/);
 assert.match(source, /-webkit-line-clamp:2/);
 assert.match(source, /metric strong\{[^}]*overflow:visible;text-overflow:clip/);
+assert.match(source, /summary-car\{[^}]*height:var\(--car-image-height\)/);
+assert.match(source, /operational-row \.state>strong,.operational-row \.event>strong\{grid-column:1\/-1;grid-row:2/);
+assert.doesNotMatch(source, /class="state engine"[^>]*>[\s\S]*?<div><span>Двигатель/);
 assert.doesNotMatch(source, /summary-car\.id-(?:130|683)/);
 assert.doesNotMatch(source, /open-state/);
 
@@ -155,9 +161,10 @@ const geometryFrame = {
   style: { setProperty(name, value) { geometryStyle.set(name, value); } },
   classList: { add(name) { this.value = name; } },
 };
-runtime._applyCarGeometry(geometryFrame, [1774, 887, 48, 100, 1702, 785]);
-assert.equal(geometryStyle.get("--car-visible-aspect"), "1654 / 685");
+runtime._applyCarGeometry(geometryFrame, [1774, 887, 48, 100, 1702, 785], 1.05);
+assert.equal(geometryStyle.get("--car-visible-aspect"), "1654 / 719.25");
 assert.ok(Math.abs(parseFloat(geometryStyle.get("--car-image-width")) - 107.2551) < 0.001);
+assert.ok(Math.abs(parseFloat(geometryStyle.get("--car-image-height")) - 129.4890) < 0.001);
 assert.ok(Math.abs(parseFloat(geometryStyle.get("--car-image-left")) + 2.9021) < 0.001);
 assert.ok(Math.abs(parseFloat(geometryStyle.get("--car-image-top")) + 14.5985) < 0.001);
 assert.equal(geometryFrame.classList.value, "geometry-ready");
@@ -165,6 +172,13 @@ const scene130 = runtime._scene({ name: "130-й", entities: {} });
 const scene683 = runtime._scene({ name: "683-й", entities: {} });
 assert.deepEqual(scene130.geometry, [1774, 887, 48, 100, 1702, 785]);
 assert.deepEqual(scene683.geometry, [1866, 843, 26, 19, 1850, 812]);
+assert.equal(scene130.heightScale, 1.05);
+assert.equal(scene683.heightScale, 1);
+const visibleAspect = (geometry, heightScale) => {
+  const [, , left, top, right, bottom] = geometry;
+  return (right - left) / ((bottom - top) * heightScale);
+};
+assert.ok(Math.abs(visibleAspect(scene130.geometry, scene130.heightScale) - visibleAspect(scene683.geometry, scene683.heightScale)) < 0.001);
 for (const name of ["130-й", "683-й"]) {
   for (const [role, expectedState] of [["engine_running", "engine"], ["door", "door-open"], ["hood", "hood-open"], ["trunk", "trunk-open"]]) {
     const entityId = `binary_sensor.${name.slice(0, 3)}_${role}`;
@@ -172,6 +186,7 @@ for (const name of ["130-й", "683-й"]) {
     const scene = runtime._scene({ name, entities: { [role]: entityId } });
     assert.equal(scene.state, expectedState);
     assert.equal(scene.geometry.length, 6);
+    assert.equal(scene.heightScale, name === "130-й" ? 1.05 : 1);
     assert.ok(scene.geometry[4] > scene.geometry[2]);
     assert.ok(scene.geometry[5] > scene.geometry[3]);
   }
@@ -197,4 +212,4 @@ const recorderPoints = runtime._pointsFromHistory("device_tracker.starline", [[
 assert.equal(recorderPoints.length, 2, "compact GPS records inherit the series entity id");
 assert.equal(recorderPoints[1].timestamp, 1_700_000_060_000);
 
-console.log("StarLine v0.6.2 visible vehicle geometry and NikaS UI standard v1.9 checks passed");
+console.log("StarLine v0.6.3 corrected vehicle proportions and NikaS UI standard v1.9 checks passed");

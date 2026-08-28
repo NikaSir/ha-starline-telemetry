@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.6.2 against NikaS specialized-panel standard v1.9 and Navigation Contract v1.1. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.6.3 against NikaS specialized-panel standard v1.9 and Navigation Contract v1.1. Static bundle checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -24,6 +24,8 @@ Audit target: UI/integration 0.6.2 against NikaS specialized-panel standard v1.9
 | Stable production module | PASS | `scripts/build_frontend_bundle.py` deterministically copies one `starline-panel-source.js` runtime into autonomous `frontend/starline-app.js`; production registration loads only that import-free module. |
 | Stable shell and point patching | PASS | The constructor mounts Header, selector, viewport/canvas and navigation once; routine `hass` changes coalesce into `_patchAll()` without assigning `shadowRoot.innerHTML`. |
 | Lazy cached views and stable images/maps | PASS | Views and per-vehicle panes are created once and reused; car `src` changes only when the scene asset changes and map cards are cached per vehicle. |
+| Vehicle silhouette proportions and anchors | PASS / FIELD CHECK | Both vehicles retain the common 72% visible width, centre and wheel line; the 130-й asset uses a 1.05 visible-height correction so its default silhouette aspect matches 683-й without moving the wheels. |
+| Operational values remain readable | PASS / FIELD CHECK | Engine, latest event and parking values occupy the full second line of their existing 74 px cells; typography floors are unchanged and one-word states are no longer forced into the icon column. |
 | Safe title navigation | PASS | The title normalizes only the three canonical v11 base entries, consumes the timestamped one-shot hand-off, persists the accepted route and uses `history.pushState()` plus `location-changed`; it never calls `history.back()`. |
 | Strict source hand-off | PASS | Route and timestamp are required together; invalid, stale and future timestamps are consumed and rejected before saved/referrer/configured fallbacks. |
 | Data truth and command policy | PASS | The panel is read-only, resolves factual integration/registry entities, keeps unknown/unavailable explicit and contains no Home Assistant service call. |
@@ -33,7 +35,7 @@ Audit target: UI/integration 0.6.2 against NikaS specialized-panel standard v1.9
 1. Confirm native scrolling on long History/Trips/Diagnostics views at 100% in the iPhone Companion App.
 2. Confirm the fixed `130 / 683` selector on all four views and the Header and Bottom Tab Bar at every scale.
 3. Confirm focal pinch, axis locks, long press, `more-info`, reset toast and safe areas on device.
-4. Confirm all state-scene variants on both cars: their visible alpha frames must retain the common 72% width, horizontal centre and wheel line.
+4. Confirm all state-scene variants on both cars: their visible alpha frames must retain the common 72% width, horizontal centre and wheel line; the 130-й silhouette receives the documented 1.05 height correction.
 
 ## v0.5.1 history and typography delta
 
