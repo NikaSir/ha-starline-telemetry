@@ -16,10 +16,13 @@ jobs:
         run: python -m compileall -q custom_components/starline_telemetry
       - name: Check panel JavaScript
         run: |
+          python scripts/build_frontend_bundle.py --check
           for file in custom_components/starline_telemetry/frontend/*.js; do
             node --check "$file"
           done
           node tests/test_frontend_bundle.cjs
+      - name: Enforce NikaS UI standard v1.9
+        run: python scripts/check_nikas_ui_standard.py
       - name: Check panel assets
         run: |
           python - <<'PY'

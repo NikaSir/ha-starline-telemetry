@@ -1,10 +1,10 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
-  "ui_standard": "1.7",
+  "ui_standard": "1.9",
   "runtime_architecture": "single_stable_component_point_patching",
   "home_assistant_menu_event": "hass-toggle-menu",
   "zoom": {
@@ -133,9 +133,9 @@
   "navigation": {
     "title_action": "return_to_safe_originating_base_panel",
     "allowed_base_routes": [
-      "/dashboard-house",
-      "/dashboard-actions",
-      "/dashboard-infrastructure"
+      "/dashboard-house-v11/home",
+      "/dashboard-actions/home",
+      "/dashboard-infrastructure/overview"
     ],
     "history_back_used": false
   },

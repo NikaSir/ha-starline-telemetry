@@ -10,15 +10,15 @@ const source = fs.readFileSync("custom_components/starline_telemetry/frontend/st
 const bundle = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app.js", "utf8");
 const builder = fs.readFileSync("scripts/build_frontend_bundle.py", "utf8");
 
-assert.equal(integration.version, "0.6.1");
-assert.equal(manifest.version, "0.6.1");
-assert.equal(manifest.ui_standard, "1.7");
+assert.equal(integration.version, "0.6.2");
+assert.equal(manifest.version, "0.6.2");
+assert.equal(manifest.ui_standard, "1.9");
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
 assert.equal(manifest.runtime_architecture, "single_stable_component_point_patching");
 assert.equal(manifest.shell.header.top_safe_area, "env(safe-area-inset-top)");
-assert.match(constants, /PANEL_VERSION = "0\.6\.1-ui-standard-v1\.7"/);
-assert.match(constants, /PANEL_PARENT_ROUTE = "\/dashboard-house"/);
+assert.match(constants, /PANEL_VERSION = "0\.6\.2-ui-standard-v1\.9"/);
+assert.match(constants, /PANEL_PARENT_ROUTE = "\/dashboard-house-v11\/home"/);
 assert.match(panel, /starline-app\.js\?v=/);
 assert.match(panel, /read_only.*True/);
 
@@ -45,9 +45,15 @@ assert.match(source, /vehicle-selector.*role="tablist"/s);
 assert.match(source, /return_to/);
 assert.match(source, /params\.get\("from"\)/);
 assert.match(source, /nikas\.specialized\.source_route\.v1/);
-assert.match(source, /\/dashboard-house/);
-assert.match(source, /\/dashboard-actions/);
-assert.match(source, /\/dashboard-infrastructure/);
+assert.match(source, /\/dashboard-house-v11\/home/);
+assert.match(source, /\/dashboard-actions\/home/);
+assert.match(source, /\/dashboard-infrastructure\/overview/);
+assert.match(source, /nikas\.specialized\.source_route_at\.v1/);
+assert.match(source, /handedOffRaw !== null/);
+assert.match(source, /handedOffAtRaw !== null/);
+assert.match(source, /handedOffAge >= 0/);
+assert.match(source, /removeItem\(SOURCE_ROUTE_KEY\)/);
+assert.doesNotMatch(source, /["']\/dashboard-house["']/);
 assert.match(source, /history\.pushState/);
 assert.match(source, /location-changed/);
 assert.doesNotMatch(source, /history\.back\s*\(/);
@@ -127,9 +133,9 @@ const context = {
   HTMLElement: HTMLElementShim,
   location: { origin: "https://ha.local", pathname: "/starline", search: "", hash: "" },
   history: { pushState() {}, replaceState() {} },
-  window: { dispatchEvent() {}, addEventListener() {}, removeEventListener() {} },
+  window: { location: { origin: "https://ha.local", pathname: "/starline", search: "", hash: "" }, dispatchEvent() {}, addEventListener() {}, removeEventListener() {} },
   document: { referrer: "" },
-  sessionStorage: { getItem() { return null; }, setItem() {} },
+  sessionStorage: { getItem() { return null; }, setItem() {}, removeItem() {} },
   localStorage: { getItem() { return null; }, setItem() {} },
   URL, URLSearchParams, Event: class {}, CustomEvent: class {},
   ResizeObserver: class { observe() {} },
@@ -191,4 +197,4 @@ const recorderPoints = runtime._pointsFromHistory("device_tracker.starline", [[
 assert.equal(recorderPoints.length, 2, "compact GPS records inherit the series entity id");
 assert.equal(recorderPoints[1].timestamp, 1_700_000_060_000);
 
-console.log("StarLine v0.6.1 visible vehicle geometry and NikaS UI standard v1.7 checks passed");
+console.log("StarLine v0.6.2 visible vehicle geometry and NikaS UI standard v1.9 checks passed");
