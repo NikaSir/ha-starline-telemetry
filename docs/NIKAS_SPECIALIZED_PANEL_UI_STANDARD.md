@@ -1,4 +1,4 @@
-# NikaS Specialized Panel UI Standard v1.5
+# NikaS Specialized Panel UI Standard v1.7
 
 **Status:** REQUIRED
 
@@ -8,7 +8,7 @@
 
 **Visual reference:** Stark SolarPower (UPS panel)
 
-This synchronized snapshot replaces every older local rule that permits one-finger canvas movement at 100%, uses CSS `zoom`, or treats native overflow scrolling as the position engine of an enlarged canvas. Domain UI must not be redesigned during a shell-only migration.
+This synchronized implementation snapshot replaces every older local rule that permits one-finger canvas movement at 100%, uses CSS `zoom`, treats native overflow scrolling as the position engine of an enlarged canvas, remounts the panel on routine telemetry, or uses browser-history guessing for parent navigation. Domain UI must not be redesigned during a shell-only migration.
 
 ## Shell and safe areas
 
@@ -21,7 +21,9 @@ This synchronized snapshot replaces every older local rule that permits one-fing
 
 - Header grid is `52px minmax(0,1fr) 52px`; `48px minmax(0,1fr) 48px` is allowed only when the viewport is too narrow for the title.
 - Minimum Header height is `62px`, or `60px` on a phone, excluding the safe-area inset consumed above it.
-- The title is geometrically centered. Main title: `21px`, weight `800`. Optional subtitle/version: `12px`, weight `560`, `var(--secondary-text-color)`.
+- The title is a geometrically centered semantic two-line button. Main title: `23px`; version line: `14px` and exactly `UI vX.Y.Z`. On narrow phones `21px / 13px` is allowed.
+- Pressing the title returns to a captured originating base panel. Resolve `return_to`, then `from`, saved session route, same-origin referrer, configured parent and safe fallback. Only `/dashboard-house`, `/dashboard-actions` and `/dashboard-infrastructure` roots are accepted.
+- Parent navigation uses `history.pushState()` followed by `location-changed`; `history.back()` is forbidden.
 - The permanent left control is only the Home Assistant system menu. It uses `<ha-icon icon="mdi:menu">` and dispatches `hass-toggle-menu` with bubbling and composed semantics. Back arrows, integration menus and device actions are forbidden in the left rail.
 - At most one global action is allowed at right. If refresh is present, it uses `<ha-icon icon="mdi:refresh">`.
 - Left and right controls use identical `44px × 44px` plaques: `16px` radius, `var(--card-background-color)` background, `1px solid var(--divider-color)` border and the subtle UPS shadow. Icon size is `25px`.
@@ -74,6 +76,15 @@ This synchronized snapshot replaces every older local rule that permits one-fing
 - Responsive breakpoints may reflow or truncate content, but must not reduce text below that reference floor.
 - History action names use the original StarLine event-description library when the read-only journal is available.
 - History timestamps state their semantics: StarLine source time is preferred; Home Assistant detection time is labelled when Recorder is the fallback.
+
+## Stable rendering
+
+- Mount the application shell once. Routine `hass` and telemetry updates must not replace `shadowRoot.innerHTML` or remount the active subtree.
+- Apply state, text, class, attribute and CSS-variable changes as point patches, coalesced to at most one animation frame.
+- Create each view lazily and cache its visited subtree. Switching tabs or peer devices reuses those nodes.
+- Do not assign the same `src` to an unchanged image. Embedded maps and other expensive children remain mounted while their state is updated.
+- Initial loading may use a stable skeleton. Refresh patches the mounted content without a blank intermediate frame.
+- The production browser loads one autonomous module and one final component. Historical implementation layers belong in Git history, not in an import or inheritance chain.
 
 ## Delivery and acceptance
 

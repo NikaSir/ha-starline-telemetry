@@ -1,9 +1,11 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.5.10",
+  "version": "0.6.0",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
+  "ui_standard": "1.7",
+  "runtime_architecture": "single_stable_component_point_patching",
   "home_assistant_menu_event": "hass-toggle-menu",
   "zoom": {
     "engine": "transform",
@@ -32,7 +34,8 @@
       97,
       103
     ],
-    "feedback": "Масштаб 100%"
+    "feedback": "Масштаб 100%",
+    "persistence": "per_panel_client_and_vehicle"
   },
   "typography": {
     "reference": "official_starline_mobile_app",
@@ -54,8 +57,8 @@
       "control_size_px": 44,
       "control_radius_px": 16,
       "icon_size_px": 25,
-      "title_px": 21,
-      "subtitle_px": 12
+      "title_px": 23,
+      "subtitle_px": 14
     },
     "bottom_navigation": {
       "minimum_target_height_px": 52,
@@ -117,6 +120,21 @@
     "fallback_source": "home_assistant_recorder_state_transitions",
     "preferred_time": "starline_event_timestamp",
     "fallback_time": "home_assistant_detection_timestamp"
+  },
+  "navigation": {
+    "title_action": "return_to_safe_originating_base_panel",
+    "allowed_base_routes": [
+      "/dashboard-house",
+      "/dashboard-actions",
+      "/dashboard-infrastructure"
+    ],
+    "history_back_used": false
+  },
+  "rendering": {
+    "shell_mount": "once",
+    "telemetry_update": "requestAnimationFrame_point_patch",
+    "view_cache": "lazy_per_view_and_vehicle",
+    "unchanged_image_src_reassigned": false
   },
   "assets": [
     "assets/starline-bg-130-v2.webp",

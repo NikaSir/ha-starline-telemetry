@@ -44,7 +44,7 @@ In core-bridge mode, the request reuses the active core StarLine SLNet session i
 
 ## Current baseline
 
-Internal integration version: `0.5.10`
+Internal integration version: `0.6.0`
 
 Platforms:
 
@@ -136,10 +136,9 @@ The daily-use screen follows the information hierarchy of the native StarLine mo
 - one full-height vehicle card and its online status per page;
 - state-aware vehicle imagery for running engine, open doors, open hood and open trunk;
 - independent static fields for armed, alarm and unavailable states;
-- compact GPS, GSM, battery, fuel, cabin/engine temperature, mileage and parking telemetry;
+- compact GPS, GSM, battery, fuel, cabin/engine temperature and parking telemetry;
 - vehicle mnemonic with security, engine and perimeter state;
-- latest significant StarLine state event;
-- current position rendered with Home Assistant's native Map card.
+- latest significant StarLine state event without adding write controls.
 
 ### История
 
@@ -149,7 +148,7 @@ The timeline prefers the official StarLine event journal for the last 24 hours. 
 
 The 72-hour movement view uses the recorded StarLine `device_tracker` history. Home Assistant's native Map card renders the historical path, while the panel groups GPS points into trips and estimates travelled distance using the haversine formula.
 
-The logical parent is **Дом → Автомобили** (`house.vehicles`).
+The safe fallback parent is `/dashboard-house`; when opened from an approved base panel, the title returns to that originating route.
 
 Data source priority is role-by-role:
 
@@ -175,6 +174,7 @@ See:
 8. The native panel remains read-only even when its compatibility source exposes writable entities.
 9. Event history uses only the official read-only StarLine journal endpoint, under a separate quota ceiling, with Recorder as a state-transition-only fallback.
 10. Corresponding panel typography is never smaller than the official StarLine mobile application reference.
+11. The UI follows NikaS specialized-panel standard v1.7: one fixed shell, one transform canvas, cached views and point telemetry patches without routine DOM remounts.
 
 ## License
 

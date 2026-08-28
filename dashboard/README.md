@@ -41,4 +41,4 @@ The panel is **read-only even when the core StarLine integration exposes writabl
 
 Panel path: `/starline`
 
-Logical parent: `Дом → Автомобили` (`house.vehicles`).
+Safe fallback parent: `/dashboard-house`. When the panel is opened from an approved base route, the centered title returns to that captured origin.
