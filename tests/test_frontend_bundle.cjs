@@ -10,13 +10,14 @@ const source = fs.readFileSync("custom_components/starline_telemetry/frontend/st
 const bundle = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app.js", "utf8");
 const builder = fs.readFileSync("scripts/build_frontend_bundle.py", "utf8");
 
-assert.equal(integration.version, "0.6.0");
-assert.equal(manifest.version, "0.6.0");
+assert.equal(integration.version, "0.6.1");
+assert.equal(manifest.version, "0.6.1");
 assert.equal(manifest.ui_standard, "1.8");
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
 assert.equal(manifest.runtime_architecture, "single_stable_component_point_patching");
-assert.match(constants, /PANEL_VERSION = "0\.6\.0-ui-standard-v1\.8"/);
+assert.equal(manifest.shell.header.top_safe_area, "env(safe-area-inset-top)");
+assert.match(constants, /PANEL_VERSION = "0\.6\.1-ui-standard-v1\.8"/);
 assert.match(constants, /PANEL_PARENT_ROUTE = "\/dashboard-house-v11\/home"/);
 assert.match(panel, /starline-app\.js\?v=/);
 assert.match(panel, /read_only.*True/);
@@ -30,6 +31,8 @@ assert.doesNotMatch(source, /extends\s+customElements\.get/);
 
 assert.match(source, /grid-template-rows:auto auto minmax\(0,1fr\) auto/);
 assert.match(source, /grid-template-columns:52px minmax\(0,1fr\) 52px/);
+assert.match(source, /min-height:calc\(60px \+ env\(safe-area-inset-top,0px\)\)/);
+assert.match(source, /padding:max\(8px,env\(safe-area-inset-top,0px\)\)/);
 assert.match(source, /width:44px;height:44px/);
 assert.match(source, /--mdc-icon-size:25px/);
 assert.match(source, /title-button strong\{font-size:23px/);
@@ -81,8 +84,29 @@ assert.match(source, /known\.includes\(true\) \? true : known\.includes\(false\)
 assert.match(source, /if \(alarm === true\) return \{ key: "alarm"/);
 assert.match(source, /security-field\.armed,.security-field\.alarm\{opacity:1\}/);
 assert.match(source, /border-bottom-color:transparent/);
-assert.match(source, /summary-car\.id-130\{bottom:146px;width:76%\}/);
-assert.match(source, /summary-car\.id-683\{bottom:162px;width:73%\}/);
+assert.equal(manifest.summary.vehicle_geometry.mode, "visible_alpha_frame");
+assert.equal(manifest.summary.vehicle_geometry.visible_width_percent, 72);
+assert.equal(manifest.summary.vehicle_geometry.horizontal, "visible_alpha_center");
+assert.equal(manifest.summary.vehicle_geometry.wheel_line_bottom_px, 167);
+assert.equal(manifest.summary.vehicle_geometry.narrow_wheel_line_bottom_px, 161);
+assert.equal(manifest.summary.scene_height_source, "remaining_fixed_shell_grid_viewport");
+assert.equal(manifest.summary.status_row_height_px, 74);
+assert.equal(manifest.summary.status_value_lines, 2);
+assert.equal(manifest.summary.security_field_lower_edge, "open_and_faded");
+assert.match(source, /const CAR_VISIBLE_WIDTH_PERCENT = 72/);
+assert.match(source, /const CAR_WHEEL_LINE_BOTTOM_PX = 167/);
+assert.match(source, /summary-car-frame\{[^}]*bottom:\$\{CAR_WHEEL_LINE_BOTTOM_PX\}px[^}]*width:\$\{CAR_VISIBLE_WIDTH_PERCENT\}%/);
+assert.match(source, /summary-car-frame\{bottom:161px\}/);
+assert.match(source, /state-row\{height:74px/);
+assert.match(source, /summary-card\{height:100%;min-height:588px/);
+assert.match(source, /grid-template-rows:minmax\(440px,1fr\) 74px 74px/);
+assert.match(source, /canvas\{width:100%;height:100%;min-height:100%/);
+assert.doesNotMatch(source, /summary-hero\{[^}]*100dvh/);
+assert.match(source, /mask-image:linear-gradient\(to bottom,#000 0 80%,transparent 100%\)/);
+assert.match(source, /-webkit-line-clamp:2/);
+assert.match(source, /metric strong\{[^}]*overflow:visible;text-overflow:clip/);
+assert.doesNotMatch(source, /summary-car\.id-(?:130|683)/);
+assert.doesNotMatch(source, /open-state/);
 
 assert.match(source, /starline_telemetry\/panel\/history/);
 assert.match(source, /Журнал StarLine · исходное время события/);
@@ -121,6 +145,35 @@ assert.ok(registry.has("starline-app-panel"));
 
 const Panel = registry.get("starline-app-panel");
 const runtime = Object.create(Panel.prototype);
+runtime._hass = { states: {} };
+const geometryStyle = new Map();
+const geometryFrame = {
+  dataset: {},
+  style: { setProperty(name, value) { geometryStyle.set(name, value); } },
+  classList: { add(name) { this.value = name; } },
+};
+runtime._applyCarGeometry(geometryFrame, [1774, 887, 48, 100, 1702, 785]);
+assert.equal(geometryStyle.get("--car-visible-aspect"), "1654 / 685");
+assert.ok(Math.abs(parseFloat(geometryStyle.get("--car-image-width")) - 107.2551) < 0.001);
+assert.ok(Math.abs(parseFloat(geometryStyle.get("--car-image-left")) + 2.9021) < 0.001);
+assert.ok(Math.abs(parseFloat(geometryStyle.get("--car-image-top")) + 14.5985) < 0.001);
+assert.equal(geometryFrame.classList.value, "geometry-ready");
+const scene130 = runtime._scene({ name: "130-й", entities: {} });
+const scene683 = runtime._scene({ name: "683-й", entities: {} });
+assert.deepEqual(scene130.geometry, [1774, 887, 48, 100, 1702, 785]);
+assert.deepEqual(scene683.geometry, [1866, 843, 26, 19, 1850, 812]);
+for (const name of ["130-й", "683-й"]) {
+  for (const [role, expectedState] of [["engine_running", "engine"], ["door", "door-open"], ["hood", "hood-open"], ["trunk", "trunk-open"]]) {
+    const entityId = `binary_sensor.${name.slice(0, 3)}_${role}`;
+    runtime._hass.states = { [entityId]: { state: "on" } };
+    const scene = runtime._scene({ name, entities: { [role]: entityId } });
+    assert.equal(scene.state, expectedState);
+    assert.equal(scene.geometry.length, 6);
+    assert.ok(scene.geometry[4] > scene.geometry[2]);
+    assert.ok(scene.geometry[5] > scene.geometry[3]);
+  }
+}
+runtime._hass.states = {};
 const recorderEvents = runtime._eventsFromRecorder(
   { entities: { door: "binary_sensor.starline_door" } },
   [[
@@ -141,4 +194,4 @@ const recorderPoints = runtime._pointsFromHistory("device_tracker.starline", [[
 assert.equal(recorderPoints.length, 2, "compact GPS records inherit the series entity id");
 assert.equal(recorderPoints[1].timestamp, 1_700_000_060_000);
 
-console.log("StarLine v0.6.0 autonomous frontend and NikaS UI standard v1.8 checks passed");
+console.log("StarLine v0.6.1 visible vehicle geometry and NikaS UI standard v1.8 checks passed");

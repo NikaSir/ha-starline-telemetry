@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.6.0 against NikaS specialized-panel standard v1.8 and Navigation Contract v1.0. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.6.1 against NikaS specialized-panel standard v1.8 and Navigation Contract v1.0. Static bundle checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -13,6 +13,7 @@ Audit target: UI/integration 0.6.0 against NikaS specialized-panel standard v1.8
 | Interaction guard for pinch/pan | PASS | 100% leaves native pan/taps alone; two-finger pinch and enlarged pan retain pointer-cancel and post-gesture click guards. |
 | Menu and refresh use `ha-icon`; menu emits `hass-toggle-menu` | PASS | The stable shell uses `mdi:menu`/`mdi:refresh`; menu dispatch is bubbling/composed. |
 | Header UPS geometry and matching plaques | PASS | The shell sets 52px rails, 44px bordered plaques, radius 16, icons 25 and 23/14 title typography with a 21/13 narrow-phone floor. |
+| iPhone top safe area counted exactly once | PASS / FIELD CHECK | Header height and top padding consume `env(safe-area-inset-top)`; the Summary card fills the remaining fixed-shell grid viewport rather than subtracting guessed `100dvh` constants. |
 | Refresh on a matching right plaque | PASS | `.header-control.refresh` shares the menu plaque geometry and uses the accent color. |
 | Fixed full-width safe-area Bottom Tab Bar using `ha-icon` | PASS | `.bottom-nav` is edge-attached outside `.viewport`, includes safe-area bottom padding and uses MDI `ha-icon`. |
 | Bottom target/icon/label/active geometry | PASS | Final cascade enforces ≥52px targets, 28px icons, 12px/700 labels and 11% active fill. |
@@ -30,7 +31,7 @@ Audit target: UI/integration 0.6.0 against NikaS specialized-panel standard v1.8
 1. Confirm native scrolling on long History/Trips/Diagnostics views at 100% in the iPhone Companion App.
 2. Confirm the fixed `130 / 683` selector on all four views and the Header and Bottom Tab Bar at every scale.
 3. Confirm focal pinch, axis locks, long press, `more-info`, reset toast and safe areas on device.
-4. Confirm all state-scene variants on both cars and verify that image changes do not shift the vehicle position.
+4. Confirm all state-scene variants on both cars: their visible alpha frames must retain the common 72% width, horizontal centre and wheel line.
 
 ## v0.5.1 history and typography delta
 

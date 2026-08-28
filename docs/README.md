@@ -1,5 +1,6 @@
 # StarLine package documentation
 
+- `CHANGELOG_0.6.1.md` — normalized visible vehicle scale, centre and wheel-line geometry.
 - `CHANGELOG_0.6.0.md` — unified stable runtime and NikaS UI standard v1.7 rebuild.
 - `REPOSITORY_OWNERSHIP.md` — single-repository ownership policy.
 - `IPHONE_SUMMARY_TARGET.md` — approved first-tab mobile geometry.
