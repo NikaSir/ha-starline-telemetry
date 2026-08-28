@@ -9,10 +9,11 @@ const source = fs.readFileSync("custom_components/starline_telemetry/frontend/st
 const visualSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v017.js", "utf8");
 const sceneSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v018.js", "utf8");
 const splitSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v019.js", "utf8");
+const stateSceneSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v020.js", "utf8");
 
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
-assert.equal(manifest.version, "0.5.4");
+assert.equal(manifest.version, "0.5.5");
 assert.equal(manifest.zoom.native_vertical_scroll_at_or_below_percent, 100);
 assert.equal(manifest.zoom.one_finger_pan, "above_100_percent_on_overflowing_axes_only");
 assert.deepEqual(manifest.typography.floors_px, {
@@ -38,7 +39,15 @@ assert.deepEqual(manifest.summary.security_states, {
   armed: "Охрана / Включена",
   disarmed: "Охрана / Снята",
   alarm: "Охрана / Тревога",
+  unknown: "Охрана / Нет данных",
 });
+assert.deepEqual(manifest.summary.state_scene_image_priority, [
+  "hood_open",
+  "trunk_open",
+  "doors_open",
+  "engine_running",
+  "default",
+]);
 assert.match(panel, /starline-app\.js\?v=/);
 assert.doesNotMatch(bundle, /^import\s+/m, "production bundle must have no runtime imports");
 assert.match(bundle, /customElements\.define\("starline-app-panel"/);
@@ -98,6 +107,25 @@ assert.match(splitSource, /this\._vehicleSummaryCard\(selected\)/);
 assert.doesNotMatch(splitSource, /_eventsFromHistory|_starLineEvents|panel\/history/, "split-page pass must not change history or statistics");
 assert.match(bundle, /starline-app-panel-v019/);
 
+assert.match(stateSceneSource, /const image = hood === true[\s\S]*trunk === true[\s\S]*door === true[\s\S]*engine === true/);
+assert.match(stateSceneSource, /const field = alarm === true \? "alarm" : armed === true \? "armed" : "none"/);
+assert.match(stateSceneSource, /starline-car-\$\{id\}-\$\{state\}-v1\.webp/);
+assert.match(stateSceneSource, /<div class="vehicle-state-field \$\{state\.field\}"/);
+assert.match(stateSceneSource, /<strong>Нет данных<\/strong>/);
+assert.match(stateSceneSource, /.vehicle-state-field\.armed[\s\S]*\.vehicle-state-field\.alarm/);
+assert.doesNotMatch(stateSceneSource, /animation:/, "alarm and security fields must remain static");
+assert.doesNotMatch(stateSceneSource, /_eventsFromHistory|_starLineEvents|panel\/history/, "state-scene pass must not change history or statistics");
+assert.match(bundle, /starline-app-panel-v020/);
+
+for (const id of ["130", "683"]) {
+  for (const state of ["engine", "door-open", "hood-open", "trunk-open"]) {
+    const asset = `custom_components/starline_telemetry/frontend/assets/starline-car-${id}-${state}-v1.webp`;
+    assert.ok(fs.existsSync(asset), `${asset} must be packaged`);
+    assert.ok(fs.statSync(asset).size > 50_000, `${asset} must contain a production image`);
+    assert.ok(fs.statSync(asset).size < 250_000, `${asset} must stay mobile-sized`);
+  }
+}
+
 process.env.TZ = "Europe/Moscow";
 const registry = new Map();
 global.location = { hash: "#status" };
@@ -117,6 +145,9 @@ global.CustomEvent = class CustomEvent {
 global.ResizeObserver = class ResizeObserver {
   observe() {}
   disconnect() {}
+};
+global.Image = class Image {
+  set src(value) { this._src = value; }
 };
 global.HTMLElement = class HTMLElement {
   constructor() {
@@ -179,9 +210,41 @@ instance._isLocked = () => true;
 assert.match(instance._summarySecurity({}), /summary-security danger alarm/);
 assert.match(instance._summarySecurity({}), /mdi:shield-alert/);
 assert.match(instance._summarySecurity({}), /<strong>Тревога<\/strong>/);
+instance._entity = () => null;
+instance._isOn = originalIsOn;
+instance._isLocked = originalIsLocked;
+assert.match(instance._summarySecurity({}), /summary-security muted unknown/);
+assert.match(instance._summarySecurity({}), /<strong>Нет данных<\/strong>/);
 instance._entity = originalEntity;
 instance._isLocked = originalIsLocked;
 instance._isOn = originalIsOn;
+
+const originalSceneEntity = instance._sceneEntity;
+const originalOnline = instance._online;
+instance._sceneEntity = (_vehicle, keys) => ({ key: keys[0], state: { state: "on" } });
+instance._isOn = (entity) => ["alarm", "hood", "trunk", "door", "engine_running"].includes(entity?.key);
+instance._isLocked = () => true;
+instance._online = () => true;
+assert.deepEqual(instance._sceneState({}).image, "hood-open", "hood must have the highest image priority");
+assert.deepEqual(instance._sceneState({}).field, "alarm", "alarm field must override armed field");
+instance._isOn = (entity) => ["trunk", "door", "engine_running"].includes(entity?.key);
+assert.equal(instance._sceneState({}).image, "trunk-open");
+instance._isOn = (entity) => ["door", "engine_running"].includes(entity?.key);
+assert.equal(instance._sceneState({}).image, "door-open");
+instance._isOn = (entity) => entity?.key === "engine_running";
+assert.equal(instance._sceneState({}).image, "engine");
+instance._sceneEntity = originalSceneEntity;
+instance._online = originalOnline;
+instance._isLocked = originalIsLocked;
+instance._isOn = originalIsOn;
+const originalHass = instance._hass;
+instance._hass = { states: { "binary_sensor.arm_state": { state: "on" } } };
+assert.equal(
+  instance._sceneState({ entities: { arm_state: "binary_sensor.arm_state" } }).armed,
+  true,
+  "arm-state aliases must drive the security field",
+);
+instance._hass = originalHass;
 
 let fixedSwitcherQueries = 0;
 instance.shadowRoot = {

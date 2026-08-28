@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "home_assistant_menu_event": "hass-toggle-menu",
@@ -81,8 +81,21 @@
     "security_states": {
       "armed": "Охрана / Включена",
       "disarmed": "Охрана / Снята",
-      "alarm": "Охрана / Тревога"
-    }
+      "alarm": "Охрана / Тревога",
+      "unknown": "Охрана / Нет данных"
+    },
+    "state_scene_image_priority": [
+      "hood_open",
+      "trunk_open",
+      "doors_open",
+      "engine_running",
+      "default"
+    ],
+    "state_scene_overlays": [
+      "armed_field",
+      "alarm_field",
+      "offline_desaturation"
+    ]
   },
   "history": {
     "preferred_source": "official_starline_open_api_events",
@@ -94,6 +107,14 @@
     "assets/starline-bg-130-v2.webp",
     "assets/starline-bg-683-v2.webp",
     "assets/starline-car-130-v2.webp",
-    "assets/starline-car-683-v2.webp"
+    "assets/starline-car-683-v2.webp",
+    "assets/starline-car-130-engine-v1.webp",
+    "assets/starline-car-130-door-open-v1.webp",
+    "assets/starline-car-130-hood-open-v1.webp",
+    "assets/starline-car-130-trunk-open-v1.webp",
+    "assets/starline-car-683-engine-v1.webp",
+    "assets/starline-car-683-door-open-v1.webp",
+    "assets/starline-car-683-hood-open-v1.webp",
+    "assets/starline-car-683-trunk-open-v1.webp"
   ]
 }

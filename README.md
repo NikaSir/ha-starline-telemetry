@@ -44,7 +44,7 @@ In core-bridge mode, the request reuses the active core StarLine SLNet session i
 
 ## Current baseline
 
-Internal integration version: `0.5.4`
+Internal integration version: `0.5.5`
 
 Platforms:
 
@@ -134,6 +134,8 @@ The daily-use screen follows the information hierarchy of the native StarLine mo
 
 - separate initial pages for 130 and 683, selected by the fixed vehicle selector;
 - one full-height vehicle card and its online status per page;
+- state-aware vehicle imagery for running engine, open doors, open hood and open trunk;
+- independent static fields for armed, alarm and unavailable states;
 - compact GPS, GSM, battery, fuel, cabin/engine temperature, mileage and parking telemetry;
 - vehicle mnemonic with security, engine and perimeter state;
 - latest significant StarLine state event;

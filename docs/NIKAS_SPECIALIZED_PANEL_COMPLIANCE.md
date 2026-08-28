@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.5.4. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.5.5. Static bundle checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -27,6 +27,7 @@ Audit target: UI/integration 0.5.4. Static bundle checks pass; final iPhone fiel
 1. Confirm native scrolling on long History/Trips/Diagnostics views at 100% in the iPhone Companion App.
 2. Confirm the fixed `130 / 683` selector on all four views and the Header and Bottom Tab Bar at every scale.
 3. Confirm focal pinch, axis locks, long press, `more-info`, reset toast and safe areas on device.
+4. Confirm all state-scene variants on both cars and verify that image changes do not shift the vehicle position.
 
 ## v0.5.1 history and typography delta
 
@@ -57,4 +58,13 @@ Audit target: UI/integration 0.5.4. Static bundle checks pass; final iPhone fiel
 - The combined two-card Summary is split into separate initial pages for 130 and 683.
 - The fixed vehicle selector changes the active initial page without changing the Bottom Tab Bar.
 - One selected vehicle card receives the full available Summary height; approved metrics, status rows, connection and security states remain unchanged.
+- History and statistics behavior remain unchanged.
+
+## v0.5.5 state-aware scene delta
+
+- Each car has packaged engine-running, doors-open, hood-open and trunk-open image variants.
+- Image selection follows a deterministic priority: hood, trunk, doors, engine, default.
+- Armed and alarm fields are independent static overlays; unavailable state desaturates the scene without hiding it.
+- Security no longer reports the ambiguous fallback `Норма`; missing armed-state telemetry is shown as `Нет данных`.
+- Operational values may use two lines without reducing the approved typography floor.
 - History and statistics behavior remain unchanged.
