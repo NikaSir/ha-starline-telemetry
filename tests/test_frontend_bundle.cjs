@@ -10,14 +10,14 @@ const source = fs.readFileSync("custom_components/starline_telemetry/frontend/st
 const bundle = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app.js", "utf8");
 const builder = fs.readFileSync("scripts/build_frontend_bundle.py", "utf8");
 
-assert.equal(integration.version, "0.6.4");
-assert.equal(manifest.version, "0.6.4");
+assert.equal(integration.version, "0.6.5");
+assert.equal(manifest.version, "0.6.5");
 assert.equal(manifest.ui_standard, "1.9");
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
 assert.equal(manifest.runtime_architecture, "single_stable_component_point_patching");
 assert.equal(manifest.shell.header.top_safe_area, "env(safe-area-inset-top)");
-assert.match(constants, /PANEL_VERSION = "0\.6\.4-ui-standard-v1\.9"/);
+assert.match(constants, /PANEL_VERSION = "0\.6\.5-ui-standard-v1\.9"/);
 assert.match(constants, /PANEL_PARENT_ROUTE = "\/dashboard-house-v11\/home"/);
 assert.match(panel, /starline-app\.js\?v=/);
 assert.match(panel, /read_only.*True/);
@@ -87,9 +87,11 @@ assert.match(source, /known\.includes\(true\) \? true : known\.includes\(false\)
 assert.match(source, /if \(alarm === true\) return \{ key: "alarm"/);
 assert.match(source, /security-field\.armed,.security-field\.alarm\{opacity:1\}/);
 assert.match(source, /border-bottom-color:transparent/);
-assert.equal(manifest.summary.vehicle_geometry.mode, "visible_alpha_frame");
+assert.equal(manifest.summary.vehicle_geometry.mode, "visual_landmark_frame");
 assert.equal(manifest.summary.vehicle_geometry.visible_width_percent, 72);
 assert.equal(manifest.summary.vehicle_geometry.proportion_reference_vehicle, "683");
+assert.deepEqual(manifest.summary.vehicle_geometry.landmark_basis, ["wheel_line", "roofline", "front_bumper", "rear_bumper"]);
+assert.deepEqual(manifest.summary.vehicle_geometry.landmark_height_scale, { "130": 1.04, "683": 1 });
 assert.deepEqual(manifest.summary.vehicle_geometry.reference_visible_size_by_state, {
   default: [1824, 793],
   engine: [1866, 843],
@@ -103,11 +105,13 @@ assert.equal(manifest.summary.vehicle_geometry.narrow_wheel_line_bottom_px, 161)
 assert.equal(manifest.summary.scene_height_source, "remaining_fixed_shell_grid_viewport");
 assert.equal(manifest.summary.status_row_height_px, 74);
 assert.equal(manifest.summary.status_value_lines, 2);
-assert.deepEqual(manifest.summary.operational_columns, ["1fr", "1.35fr", ".65fr"]);
+assert.deepEqual(manifest.summary.operational_columns_percent, [40, 38, 22]);
 assert.equal(manifest.summary.operational_value_layout, "icon_with_aligned_label_and_value");
+assert.equal(manifest.summary.engine_value_line, "single_line_no_clip");
 assert.equal(manifest.summary.security_field_lower_edge, "open_and_faded");
 assert.match(source, /const CAR_VISIBLE_WIDTH_PERCENT = 72/);
 assert.match(source, /const CAR_REFERENCE_VISIBLE_SIZE = Object\.freeze/);
+assert.match(source, /const CAR_LANDMARK_HEIGHT_SCALE = Object\.freeze\(\{ "130": 1\.04, "683": 1 \}\)/);
 assert.doesNotMatch(source, /CAR_VISIBLE_HEIGHT_SCALE/);
 assert.match(source, /const CAR_WHEEL_LINE_BOTTOM_PX = 167/);
 assert.match(source, /summary-car-frame\{[^}]*bottom:\$\{CAR_WHEEL_LINE_BOTTOM_PX\}px[^}]*width:\$\{CAR_VISIBLE_WIDTH_PERCENT\}%/);
@@ -121,8 +125,9 @@ assert.match(source, /mask-image:linear-gradient\(to bottom,#000 0 80%,transpare
 assert.match(source, /-webkit-line-clamp:2/);
 assert.match(source, /metric strong\{[^}]*overflow:visible;text-overflow:clip/);
 assert.match(source, /summary-car\{[^}]*height:var\(--car-image-height\)/);
-assert.match(source, /operational-row\{grid-template-columns:minmax\(0,1fr\) minmax\(0,1\.35fr\) minmax\(0,\.65fr\)\}/);
+assert.match(source, /operational-row\{grid-template-columns:minmax\(0,40fr\) minmax\(0,38fr\) minmax\(0,22fr\)\}/);
 assert.match(source, /operational-row \.state span,.operational-row \.event span\{white-space:nowrap;overflow:visible;text-overflow:clip\}/);
+assert.match(source, /operational-row \.engine strong,.operational-row \.brake strong\{display:block;white-space:nowrap;overflow:visible;-webkit-line-clamp:unset\}/);
 assert.match(source, /class="state engine"[^>]*>[\s\S]*?<div><span>Двигатель<\/span><strong><\/strong><\/div>/);
 assert.doesNotMatch(source, /summary-car\.id-(?:130|683)/);
 assert.doesNotMatch(source, /open-state/);
@@ -171,8 +176,8 @@ const geometryFrame = {
   style: { setProperty(name, value) { geometryStyle.set(name, value); } },
   classList: { add(name) { this.value = name; } },
 };
-runtime._applyCarGeometry(geometryFrame, [1774, 887, 48, 100, 1702, 785], [1824, 793]);
-assert.equal(geometryStyle.get("--car-visible-aspect"), "1824 / 793");
+runtime._applyCarGeometry(geometryFrame, [1774, 887, 48, 100, 1702, 785], [1824, 793], 1.04);
+assert.equal(geometryStyle.get("--car-visible-aspect"), "1824 / 824.72");
 assert.ok(Math.abs(parseFloat(geometryStyle.get("--car-image-width")) - 107.2551) < 0.001);
 assert.ok(Math.abs(parseFloat(geometryStyle.get("--car-image-height")) - 129.4890) < 0.001);
 assert.ok(Math.abs(parseFloat(geometryStyle.get("--car-image-left")) + 2.9021) < 0.001);
@@ -184,6 +189,9 @@ assert.deepEqual(scene130.geometry, [1774, 887, 48, 100, 1702, 785]);
 assert.deepEqual(scene683.geometry, [1866, 843, 26, 19, 1850, 812]);
 assert.deepEqual(scene130.referenceSize, [1824, 793]);
 assert.deepEqual(scene683.referenceSize, [1824, 793]);
+assert.equal(scene130.landmarkHeightScale, 1.04);
+assert.equal(scene683.landmarkHeightScale, 1);
+assert.ok((793 * scene130.landmarkHeightScale) / 793 >= 1.04, "130-й must receive a visible four-percent landmark correction");
 const stateReferenceSize = {
   engine: [1866, 843],
   "door-open": [1862, 840],
@@ -198,6 +206,7 @@ for (const name of ["130-й", "683-й"]) {
     assert.equal(scene.state, expectedState);
     assert.equal(scene.geometry.length, 6);
     assert.deepEqual(scene.referenceSize, stateReferenceSize[expectedState]);
+    assert.equal(scene.landmarkHeightScale, name === "130-й" ? 1.04 : 1);
     assert.ok(scene.geometry[4] > scene.geometry[2]);
     assert.ok(scene.geometry[5] > scene.geometry[3]);
   }
@@ -223,4 +232,4 @@ const recorderPoints = runtime._pointsFromHistory("device_tracker.starline", [[
 assert.equal(recorderPoints.length, 2, "compact GPS records inherit the series entity id");
 assert.equal(recorderPoints[1].timestamp, 1_700_000_060_000);
 
-console.log("StarLine v0.6.4 black-reference proportions and aligned operational layout checks passed");
+console.log("StarLine v0.6.5 visible landmark geometry and unclipped operational layout checks passed");
