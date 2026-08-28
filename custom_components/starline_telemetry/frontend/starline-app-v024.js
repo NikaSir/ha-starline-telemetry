@@ -7,8 +7,11 @@ class StarLineAppPanelV024 extends BASE_COMPONENT {
   _installCommonHeader() {
     super._installCommonHeader();
     if (!this.shadowRoot) return;
-    const title = this.shadowRoot.querySelector(".nika-title span");
-    if (title) title.textContent = `Автомобили · UI v${UI_VERSION}`;
+    const title = this.shadowRoot.querySelector(".nika-title");
+    const heading = title?.querySelector("strong");
+    const subtitle = title?.querySelector("span");
+    if (heading) heading.textContent = "Автомобили";
+    if (subtitle) subtitle.textContent = `UI v${UI_VERSION}`;
   }
 
   _render() {
