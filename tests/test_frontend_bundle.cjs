@@ -13,10 +13,11 @@ const stateSceneSource = fs.readFileSync("custom_components/starline_telemetry/f
 const securityGeometrySource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v021.js", "utf8");
 const armedHeightSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v022.js", "utf8");
 const centeredSecuritySource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v023.js", "utf8");
+const groundedDomeSource = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app-v024.js", "utf8");
 
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
-assert.equal(manifest.version, "0.5.8");
+assert.equal(manifest.version, "0.5.9");
 assert.equal(manifest.zoom.native_vertical_scroll_at_or_below_percent, 100);
 assert.equal(manifest.zoom.one_finger_pan, "above_100_percent_on_overflowing_axes_only");
 assert.deepEqual(manifest.typography.floors_px, {
@@ -56,9 +57,10 @@ assert.equal(manifest.summary.security_conflict_policy, "any_explicit_armed_sour
 assert.equal(manifest.summary.security_current_source, "starline_open_api_cached_60_seconds");
 assert.equal(manifest.summary.refresh_behavior, "force_current_read_only_vehicle_state");
 assert.deepEqual(manifest.summary.vehicle_geometry, {
-  130: { width_percent: 76, horizontal: "center", bottom_px: 216 },
-  683: { width_percent: 73, horizontal: "center", bottom_px: 232 },
+  130: { width_percent: 76, horizontal: "center", bottom_px: 146 },
+  683: { width_percent: 73, horizontal: "center", bottom_px: 162 },
 });
+assert.equal(manifest.summary.security_field_geometry, "grounded_half_dome_aligned_to_wheel_line");
 assert.match(panel, /starline-app\.js\?v=/);
 assert.doesNotMatch(bundle, /^import\s+/m, "production bundle must have no runtime imports");
 assert.match(bundle, /customElements\.define\("starline-app-panel"/);
@@ -160,6 +162,15 @@ assert.match(bundle, /_loadBootstrap\(true\)\.then\(\(\) => this\._ensureHistory
 assert.match(panel, /async_fetch_device_data/);
 assert.match(panel, /_LIVE_SECURITY_CACHE_SECONDS = 60/);
 assert.match(panel, /await _bootstrap_payload_live\(hass, entry, msg\["force"\]\)/);
+
+assert.match(groundedDomeSource, /starline-car-130-[^}]*\{[\s\S]*bottom:146px !important/);
+assert.match(groundedDomeSource, /starline-car-683-[^}]*\{[\s\S]*bottom:162px !important/);
+assert.match(groundedDomeSource, /\.vehicle-state-field \{[\s\S]*bottom:160px !important;[\s\S]*height:230px !important/);
+assert.match(groundedDomeSource, /border-radius:50% 50% 0 0 \/ 100% 100% 0 0 !important/);
+assert.match(groundedDomeSource, /\.summary-metric:nth-child\(3\)[\s\S]*column-gap:2px !important/);
+assert.doesNotMatch(groundedDomeSource, /font-size:/, "grounding pass must preserve typography floors");
+assert.doesNotMatch(groundedDomeSource, /_eventsFromHistory|_starLineEvents|panel\/history/, "grounding pass must not change history or statistics");
+assert.match(bundle, /starline-app-panel-v024/);
 
 for (const id of ["130", "683"]) {
   for (const state of ["engine", "door-open", "hood-open", "trunk-open"]) {
