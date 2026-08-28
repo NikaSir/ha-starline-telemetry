@@ -3793,6 +3793,7 @@ if (!customElements.get("starline-app-panel-v018")) {
 // BEGIN starline-app-v019.js
 {
 const BASE_COMPONENT = customElements.get("starline-app-panel-v018");
+const SWITCHER_COMPONENT = customElements.get("starline-app-panel-v015");
 const UI_VERSION = "0.5.4";
 const SOURCE_ROUTE_KEY = "nikas.specialized.source_route.v1";
 const SOURCE_ROUTE_AT_KEY = "nikas.specialized.source_route_at.v1";
@@ -4088,35 +4089,15 @@ class StarLineAppPanelV019 extends BASE_COMPONENT {
     });
   }
 
+  _statusView(vehicle) {
+    if (!this._mobileOnly()) return super._statusView(vehicle);
+    const selected = vehicle || this._vehicle() || this._orderedVehicles()[0];
+    if (!selected) return '<div class="empty">Автомобили не найдены</div>';
+    return `<div class="dual-summary single-summary">${this._vehicleSummaryCard(selected)}</div>`;
+  }
+
   _installFixedVehicleSwitcher() {
-    if (!this.shadowRoot) return;
-    const app = this.shadowRoot.querySelector(".app");
-    const header = app?.querySelector(":scope > header");
-    const vehicles = this._orderedVehicles();
-    if (!app || !header) return;
-
-    let selector = app.querySelector(":scope > .fixed-vehicle-switcher");
-    if (!selector && vehicles.length > 1) {
-      selector = document.createElement("div");
-      selector.className = "fixed-vehicle-switcher";
-      selector.setAttribute("aria-label", "Автомобили");
-      vehicles.forEach((vehicle) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.dataset.fixedVehicle = vehicle.device_id;
-        const lamp = document.createElement("i");
-        const label = document.createElement("span");
-        button.append(lamp, label);
-        button.addEventListener("click", () => this._selectStableVehicle(button.dataset.fixedVehicle));
-        selector.append(button);
-      });
-      header.after(selector);
-    }
-
-    const visible = Boolean(selector && vehicles.length > 1 && this._view !== "status");
-    if (selector) selector.hidden = !visible;
-    app.classList.toggle("has-fixed-vehicle-switcher", visible);
-    this._syncFixedVehicleSwitcher();
+    SWITCHER_COMPONENT.prototype._installFixedVehicleSwitcher.call(this);
   }
 
   _syncFixedVehicleSwitcher() {
@@ -4245,6 +4226,8 @@ class StarLineAppPanelV019 extends BASE_COMPONENT {
       .history-row time { font-size:16px !important; }
       .history-row strong { font-size:18px !important; }
       .route-svg text { font-size:9px !important; }
+
+      .single-summary { gap:0 !important; }
 
       nav button { min-height:52px !important; border-radius:16px !important; }
       nav ha-icon { --mdc-icon-size:28px !important; }
