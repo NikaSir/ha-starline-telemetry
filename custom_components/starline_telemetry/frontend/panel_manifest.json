@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "ui_standard": "1.7",
@@ -54,6 +54,7 @@
     "header": {
       "columns": "52px minmax(0,1fr) 52px",
       "phone_min_height_px": 60,
+      "top_safe_area": "env(safe-area-inset-top)",
       "control_size_px": 44,
       "control_radius_px": 16,
       "icon_size_px": 25,
@@ -105,9 +106,17 @@
     "security_current_source": "starline_open_api_cached_60_seconds",
     "refresh_behavior": "force_current_read_only_vehicle_state",
     "vehicle_geometry": {
-      "130": {"width_percent": 76, "horizontal": "center", "bottom_px": 146},
-      "683": {"width_percent": 73, "horizontal": "center", "bottom_px": 162}
+      "mode": "visible_alpha_frame",
+      "visible_width_percent": 72,
+      "horizontal": "visible_alpha_center",
+      "wheel_line_bottom_px": 167,
+      "narrow_wheel_line_bottom_px": 161,
+      "state_assets_share_geometry_model": true
     },
+    "scene_height_source": "remaining_fixed_shell_grid_viewport",
+    "status_row_height_px": 74,
+    "status_value_lines": 2,
+    "security_field_lower_edge": "open_and_faded",
     "security_field_geometry": "grounded_half_dome_open_at_wheel_line",
     "state_scene_overlays": [
       "armed_field",
