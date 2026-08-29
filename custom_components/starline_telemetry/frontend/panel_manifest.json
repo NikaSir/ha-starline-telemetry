@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "ui_standard": "1.9",
@@ -127,6 +127,9 @@
       "state_assets_share_geometry_model": true
     },
     "scene_height_source": "remaining_fixed_shell_grid_viewport",
+    "metric_tile_layout": "bold_centered_label_above_centered_icon_value_row",
+    "metric_label_weight": 750,
+    "metric_reading_alignment": "icon_and_value_same_line_centered",
     "status_row_height_px": 74,
     "status_value_lines": 2,
     "operational_columns_percent": [40, 38, 22],

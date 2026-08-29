@@ -1,5 +1,6 @@
 # StarLine package documentation
 
+- `CHANGELOG_0.6.6.md` — centred bold metric labels with a shared icon/value line.
 - `CHANGELOG_0.6.5.md` — visible 130-й landmark correction and unclipped operational row.
 - `CHANGELOG_0.6.4.md` — literal 683-й vehicle proportions and aligned operational labels.
 - `CHANGELOG_0.6.3.md` — corrected 130-й proportions and full-width operational values.

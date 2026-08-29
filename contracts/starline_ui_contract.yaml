@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: 0.6.5
+version: 0.6.6
 ui_standard: 1.9
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
@@ -105,6 +105,11 @@ summary_screen:
   per_vehicle:
     hero_layers: [background, vehicle_image, live_metrics, security_badge, connectivity]
     live_metrics_row: [battery, fuel, engine_temperature, cabin_temperature]
+    live_metric_tile:
+      label: bold_centered_top
+      label_weight: 750
+      reading: centered_icon_and_value_same_line
+      size_change: forbidden
     perimeter_row: [hood, door, trunk]
     operational_row: [engine_running, last_event, parking]
     last_event: compact_in_operational_row
@@ -140,6 +145,7 @@ summary_screen:
       security_field_geometry: grounded_half_dome_open_at_wheel_line
       security_field_lower_edge: open_and_faded
       scene_height_source: remaining_fixed_shell_grid_viewport
+      metric_tile_layout: bold_centered_label_above_centered_icon_value_row
       status_row_height_px: 74
       status_value_lines: 2
       operational_columns_percent: [40, 38, 22]
