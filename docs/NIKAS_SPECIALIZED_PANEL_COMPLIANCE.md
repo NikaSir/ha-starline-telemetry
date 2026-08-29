@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.6.5 against NikaS specialized-panel standard v1.9 and Navigation Contract v1.1. Static bundle checks pass; final iPhone field acceptance remains required.
+Audit target: UI/integration 0.6.6 against NikaS specialized-panel standard v1.9 and Navigation Contract v1.1. Static bundle checks pass; final iPhone field acceptance remains required.
 
 | Requirement | Status | Evidence / required follow-up |
 |---|---|---|
@@ -113,3 +113,10 @@ Audit target: UI/integration 0.6.5 against NikaS specialized-panel standard v1.9
 - The security dome retains its upper arc and soft translucent fill but no longer draws a horizontal baseline beneath the vehicle.
 - The approved vehicle size, horizontal centre, vertical grounding and metric layout remain unchanged.
 - Live security state, typography, history, statistics, navigation and zoom behavior remain unchanged.
+
+## v0.6.6 centred live-metric plaque layout
+
+- Each live-metric plaque keeps its approved dimensions and uses two internal rows.
+- The metric label is bold and centred in the upper row.
+- The blue icon and live value share one centred horizontal reading row beneath the label.
+- Vehicle scenes, security state, connection, status rows, navigation, zoom and telemetry patching remain unchanged.
