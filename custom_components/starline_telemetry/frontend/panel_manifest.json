@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.6.6",
+  "version": "0.6.7",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "ui_standard": "1.9",

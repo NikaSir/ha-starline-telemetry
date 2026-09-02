@@ -10,14 +10,14 @@ const source = fs.readFileSync("custom_components/starline_telemetry/frontend/st
 const bundle = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app.js", "utf8");
 const builder = fs.readFileSync("scripts/build_frontend_bundle.py", "utf8");
 
-assert.equal(integration.version, "0.6.6");
-assert.equal(manifest.version, "0.6.6");
+assert.equal(integration.version, "0.6.7");
+assert.equal(manifest.version, "0.6.7");
 assert.equal(manifest.ui_standard, "1.9");
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
 assert.equal(manifest.runtime_architecture, "single_stable_component_point_patching");
 assert.equal(manifest.shell.header.top_safe_area, "env(safe-area-inset-top)");
-assert.match(constants, /PANEL_VERSION = "0\.6\.6-ui-standard-v1\.9"/);
+assert.match(constants, /PANEL_VERSION = "0\.6\.7-ui-standard-v1\.9"/);
 assert.equal(manifest.summary.metric_tile_layout, "bold_centered_label_above_centered_icon_value_row");
 assert.equal(manifest.summary.metric_label_weight, 750);
 assert.equal(manifest.summary.metric_reading_alignment, "icon_and_value_same_line_centered");
@@ -241,4 +241,4 @@ const recorderPoints = runtime._pointsFromHistory("device_tracker.starline", [[
 assert.equal(recorderPoints.length, 2, "compact GPS records inherit the series entity id");
 assert.equal(recorderPoints[1].timestamp, 1_700_000_060_000);
 
-console.log("StarLine v0.6.6 centred live-metric plaque checks passed");
+console.log("StarLine v0.6.7 centred live-metric plaque checks passed");

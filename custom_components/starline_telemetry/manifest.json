@@ -1,6 +1,6 @@
 {
   "domain": "starline_telemetry",
-  "name": "StarLine Telemetry",
+  "name": "NikaS StarLine Telemetry",
   "codeowners": [
     "@NikaSir"
   ],
@@ -16,5 +16,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/NikaSir/ha-starline-telemetry/issues",
   "requirements": [],
-  "version": "0.6.6"
+  "version": "0.6.7"
 }
