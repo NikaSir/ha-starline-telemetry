@@ -1,10 +1,10 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.6.7",
+  "version": "0.6.8",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
-  "ui_standard": "1.9",
+  "ui_standard": "2.2",
   "runtime_architecture": "single_stable_component_point_patching",
   "home_assistant_menu_event": "hass-toggle-menu",
   "zoom": {
@@ -59,13 +59,26 @@
       "control_radius_px": 16,
       "icon_size_px": 25,
       "title_px": 23,
-      "subtitle_px": 14
+      "subtitle_px": 14,
+      "title_width": "min(360px,100%)",
+      "title_height_px": 52
     },
     "bottom_navigation": {
-      "minimum_target_height_px": 52,
-      "icon_size_px": 28,
-      "label_size_px": 12
-    }
+      "body_height_px": 64,
+      "button_height_px": 52,
+      "icon_size_px": 26,
+      "label_size_px": 12,
+      "label_weight": 700
+    },
+    "peer_selector": {
+      "body_height_px": 52,
+      "button_height_px": 44,
+      "status_lamp_px": 9,
+      "selection_state_independent": true
+    },
+    "host_boundary": "ha-panel",
+    "content_max_width_px": 1280,
+    "scroll_boundary_guard": "capture-non-passive-touchmove"
   },
   "summary": {
     "vehicle_switcher": "fixed_two_page_selector",
@@ -109,17 +122,37 @@
       "mode": "visual_landmark_frame",
       "visible_width_percent": 72,
       "proportion_reference_vehicle": "683",
-      "landmark_basis": ["wheel_line", "roofline", "front_bumper", "rear_bumper"],
+      "landmark_basis": [
+        "wheel_line",
+        "roofline",
+        "front_bumper",
+        "rear_bumper"
+      ],
       "landmark_height_scale": {
         "130": 1.04,
-        "683": 1.0
+        "683": 1
       },
       "reference_visible_size_by_state": {
-        "default": [1824, 793],
-        "engine": [1866, 843],
-        "door_open": [1862, 840],
-        "hood_open": [1692, 825],
-        "trunk_open": [1599, 820]
+        "default": [
+          1824,
+          793
+        ],
+        "engine": [
+          1866,
+          843
+        ],
+        "door_open": [
+          1862,
+          840
+        ],
+        "hood_open": [
+          1692,
+          825
+        ],
+        "trunk_open": [
+          1599,
+          820
+        ]
       },
       "horizontal": "visible_alpha_center",
       "wheel_line_bottom_px": 167,
@@ -132,7 +165,11 @@
     "metric_reading_alignment": "icon_and_value_same_line_centered",
     "status_row_height_px": 74,
     "status_value_lines": 2,
-    "operational_columns_percent": [40, 38, 22],
+    "operational_columns_percent": [
+      40,
+      38,
+      22
+    ],
     "operational_value_layout": "icon_with_aligned_label_and_value",
     "engine_value_line": "single_line_no_clip",
     "security_field_lower_edge": "open_and_faded",
@@ -152,7 +189,8 @@
   "navigation": {
     "title_action": "return_to_safe_originating_base_panel",
     "allowed_base_routes": [
-      "/dashboard-house-v11/home",
+      "/dashboard-house-v13/home",
+      "/dashboard-rooms-v11/rooms",
       "/dashboard-actions/home",
       "/dashboard-infrastructure/overview"
     ],
