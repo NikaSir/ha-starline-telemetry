@@ -81,6 +81,19 @@ After HACS downloads a changed custom component, restart Home Assistant before t
 
 See [`docs/UPDATE_POLICY.md`](docs/UPDATE_POLICY.md) for the repository policy.
 
+## Repository checks
+
+The `Repository checks` workflow runs HACS, Hassfest and the existing repository
+checks as separate jobs. The single `validate` result succeeds only when all
+three jobs succeed; a failed, cancelled, skipped or missing job prevents success.
+Checks run on every push, pull request, the weekly schedule and manual dispatch.
+
+The frontend checks cover the registered production module `starline-app.js`,
+its generated contents, JavaScript syntax and panel assets. These delivery checks
+do not establish complete NikaS product-contract compliance or device acceptance.
+At this migration baseline, `main` is unprotected. This workflow change does not
+enable branch protection or make `validate` a required merge check in GitHub settings.
+
 ## Installation
 
 ### HACS

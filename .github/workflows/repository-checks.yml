@@ -1,0 +1,87 @@
+name: Repository checks
+
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "0 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: hacs/action@main
+        with:
+          category: integration
+          # Repository topics are managed in GitHub metadata, not in source.
+          # Remove this ignore as soon as at least one repository topic is set.
+          ignore: topics
+
+  hassfest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: home-assistant/actions/hassfest@master
+
+  repository-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Compile Python
+        run: python -m compileall -q custom_components/starline_telemetry
+      - name: Check panel JavaScript
+        run: |
+          python scripts/build_frontend_bundle.py --check
+          for file in custom_components/starline_telemetry/frontend/*.js; do
+            node --check "$file"
+          done
+          node tests/test_frontend_bundle.cjs
+      - name: Enforce NikaS UI standard v2.2
+        run: python scripts/check_nikas_ui_standard.py
+      - name: Check panel assets
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root = Path('custom_components/starline_telemetry/frontend')
+          manifest = json.loads((root / 'panel_manifest.json').read_text())
+          missing = [asset for asset in manifest['assets'] if not (root / asset).is_file()]
+          if missing:
+              raise SystemExit('Missing panel assets: ' + ', '.join(missing))
+          print(f"Validated {len(manifest['assets'])} panel assets")
+          PY
+
+  validate:
+    needs: [repository-checks, hacs, hassfest]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every repository check to succeed
+        env:
+          NIKAS_JOB_RESULTS: ${{ toJSON(needs) }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+
+          required = {"repository-checks", "hacs", "hassfest"}
+          results = json.loads(os.environ["NIKAS_JOB_RESULTS"])
+          if not isinstance(results, dict) or set(results) != required:
+              raise SystemExit("Unexpected or missing required job results")
+          unsuccessful = [
+              name for name in sorted(required)
+              if not isinstance(results[name], dict)
+              or results[name].get("result") != "success"
+          ]
+          if unsuccessful:
+              raise SystemExit("Required jobs did not succeed: " + ", ".join(unsuccessful))
+          print("All required repository checks succeeded")
+          PY
