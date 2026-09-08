@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI/integration 0.6.8 against NikaS Standard v2.2, Navigation Contract v1.2 and Shell Contract v2.1.
+Audit target: UI 0.6.8 / integration 0.6.9 against NikaS Standard v2.2, Navigation Contract v1.2 and Shell Contract v2.1.
 
 | Requirement | Status | Evidence / field acceptance |
 |---|---|---|

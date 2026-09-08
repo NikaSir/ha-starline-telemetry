@@ -44,12 +44,12 @@ async def async_setup_entry(
     mode = str(entry.data.get(CONF_MODE, MODE_TELEMETRY))
 
     if mode == MODE_CORE_BRIDGE:
+        entry.runtime_data = StarLineRuntimeData(mode=MODE_CORE_BRIDGE)
+        await async_register_native_panel(hass, entry)
         if not hass.config_entries.async_entries(CORE_STARLINE_DOMAIN):
             raise ConfigEntryNotReady(
                 "Home Assistant StarLine integration is not configured"
             )
-        entry.runtime_data = StarLineRuntimeData(mode=MODE_CORE_BRIDGE)
-        await async_register_native_panel(hass, entry)
         return True
 
     client = StarLineApiClient(
@@ -59,6 +59,12 @@ async def async_setup_entry(
         str(entry.data[CONF_USERNAME]),
         str(entry.data[CONF_PASSWORD_HASH]),
     )
+
+    # Publish the owner and its route before authentication, discovery, or the
+    # first telemetry refresh. Retryable cloud failures may delay entities, but
+    # an installed/configured StarLine application must keep /starline present.
+    entry.runtime_data = StarLineRuntimeData(mode=MODE_TELEMETRY, client=client)
+    await async_register_native_panel(hass, entry)
 
     try:
         await client.async_authenticate()
@@ -80,7 +86,6 @@ async def async_setup_entry(
         mode=MODE_TELEMETRY, client=client, coordinator=coordinator
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    await async_register_native_panel(hass, entry)
     return True
 
 

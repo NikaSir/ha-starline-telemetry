@@ -44,7 +44,7 @@ In core-bridge mode, the request reuses the active core StarLine SLNet session i
 
 ## Current baseline
 
-Internal integration version: `0.6.8`
+Internal integration version: `0.6.9`
 
 Platforms:
 
@@ -91,6 +91,8 @@ Checks run on every push, pull request, the weekly schedule and manual dispatch.
 The frontend checks cover the registered production module `starline-app.js`,
 its generated contents, JavaScript syntax and panel assets. These delivery checks
 do not establish complete NikaS product-contract compliance or device acceptance.
+The Python startup regression check keeps the `/starline` route registration ahead
+of dependency checks, cloud authentication, discovery and the initial refresh.
 At this migration baseline, `main` is unprotected. This workflow change does not
 enable branch protection or make `validate` a required merge check in GitHub settings.
 
