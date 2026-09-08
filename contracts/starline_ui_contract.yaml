@@ -1,10 +1,10 @@
 contract: starline_telemetry_dashboard
-version: 0.6.7
-ui_standard: 1.9
+version: 0.6.9
+ui_standard: 2.2
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
 repository_policy: self_contained
-parent: /dashboard-house
+parent: /dashboard-house-v13/home
 panel_path: /starline
 
 rules:
@@ -124,8 +124,10 @@ summary_screen:
     state_scene:
       image_priority: [hood_open, trunk_open, doors_open, engine_running, default]
       armed_source_priority: [lock, armed, security, arm, guard]
-      security_conflict_policy: any_explicit_armed_source_wins
-      current_source: starline_open_api_cached_60_seconds
+      security_conflict_policy: first_reliable_home_assistant_source_wins
+      current_source: home_assistant_then_fresh_bootstrap_60_seconds
+      bootstrap_max_age_seconds: 60
+      unavailable_home_assistant_state: unknown_without_bootstrap_fallback
       refresh_behavior: force_current_read_only_vehicle_state
       vehicle_horizontal_alignment: centered_by_asset_alpha_bounds
       vehicle_scale_basis: visual_landmarks_over_alpha_bounds

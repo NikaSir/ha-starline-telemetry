@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.6.8",
+  "version": "0.6.9",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "ui_standard": "2.2",
@@ -115,8 +115,8 @@
       "arm",
       "guard"
     ],
-    "security_conflict_policy": "any_explicit_armed_source_wins",
-    "security_current_source": "starline_open_api_cached_60_seconds",
+    "security_conflict_policy": "first_reliable_home_assistant_source_wins",
+    "security_current_source": "home_assistant_then_fresh_bootstrap_60_seconds",
     "refresh_behavior": "force_current_read_only_vehicle_state",
     "vehicle_geometry": {
       "mode": "visual_landmark_frame",

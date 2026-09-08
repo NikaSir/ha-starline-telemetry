@@ -13,6 +13,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import StarLineTelemetryConfigEntry
+from .data_quality import normalize_binary_value
 from .entity import StarLineTelemetryEntity, has_nested_value, nested_value
 
 
@@ -90,6 +91,10 @@ class StarLineTelemetryBinarySensor(StarLineTelemetryEntity, BinarySensorEntity)
         self.entity_description = description
 
     @property
-    def is_on(self) -> bool:
+    def is_on(self) -> bool | None:
         """Return the current binary state."""
-        return bool(nested_value(self.device_data, self.entity_description.path))
+        value = nested_value(self.device_data, self.entity_description.path)
+        return normalize_binary_value(
+            value,
+            legacy_disarmed=self.entity_description.key == "armed",
+        )
