@@ -36,6 +36,8 @@ jobs:
           python-version: "3.13"
       - name: Compile Python
         run: python -m compileall -q custom_components/starline_telemetry
+      - name: Check Python tests
+        run: python -m unittest discover -s tests -p 'test_*.py'
       - name: Check panel JavaScript
         run: |
           python scripts/build_frontend_bundle.py --check

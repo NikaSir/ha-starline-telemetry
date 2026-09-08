@@ -10,7 +10,7 @@ const source = fs.readFileSync("custom_components/starline_telemetry/frontend/st
 const bundle = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app.js", "utf8");
 const builder = fs.readFileSync("scripts/build_frontend_bundle.py", "utf8");
 
-assert.equal(integration.version, "0.6.8");
+assert.equal(integration.version, "0.6.9");
 assert.equal(manifest.version, "0.6.8");
 assert.equal(manifest.ui_standard, "2.2");
 assert.equal(manifest.entry_module, "starline-app.js");
