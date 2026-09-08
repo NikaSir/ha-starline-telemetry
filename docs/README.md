@@ -1,5 +1,6 @@
 # StarLine package documentation
 
+- `CHANGELOG_0.6.10.md` — authoritative security source and three-state discrete telemetry.
 - `CHANGELOG_0.6.9.md` — panel lifecycle availability before dependency and cloud I/O.
 - `CHANGELOG_0.6.7.md` — NikaS name and approved local brand icon publication.
 - `CHANGELOG_0.6.6.md` — centred bold metric labels with a shared icon/value line.

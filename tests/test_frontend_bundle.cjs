@@ -10,14 +10,14 @@ const source = fs.readFileSync("custom_components/starline_telemetry/frontend/st
 const bundle = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app.js", "utf8");
 const builder = fs.readFileSync("scripts/build_frontend_bundle.py", "utf8");
 
-assert.equal(integration.version, "0.6.9");
-assert.equal(manifest.version, "0.6.8");
+assert.equal(integration.version, "0.6.10");
+assert.equal(manifest.version, "0.6.9");
 assert.equal(manifest.ui_standard, "2.2");
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
 assert.equal(manifest.runtime_architecture, "single_stable_component_point_patching");
 assert.equal(manifest.shell.header.top_safe_area, "env(safe-area-inset-top)");
-assert.match(constants, /PANEL_VERSION = "0\.6\.8-ui-standard-v2\.2"/);
+assert.match(constants, /PANEL_VERSION = "0\.6\.9-ui-standard-v2\.2"/);
 assert.equal(manifest.summary.metric_tile_layout, "bold_centered_label_above_centered_icon_value_row");
 assert.equal(manifest.summary.metric_label_weight, 750);
 assert.equal(manifest.summary.metric_reading_alignment, "icon_and_value_same_line_centered");
@@ -89,10 +89,11 @@ assert.match(source, /this\._maps\.has\(id\)/);
 assert.deepEqual(manifest.summary.vehicle_page_order, ["130-й", "683-й"]);
 assert.deepEqual(manifest.summary.operational_order, ["engine_running", "last_event", "parking"]);
 assert.deepEqual(manifest.summary.state_scene_image_priority, ["hood_open", "trunk_open", "doors_open", "engine_running", "default"]);
-assert.equal(manifest.summary.security_conflict_policy, "any_explicit_armed_source_wins");
+assert.equal(manifest.summary.security_conflict_policy, "first_reliable_home_assistant_source_wins");
 assert.equal(manifest.summary.security_field_geometry, "grounded_half_dome_open_at_wheel_line");
 assert.match(source, /states\.hood \? "hood-open" : states\.trunk \? "trunk-open" : states\.door \? "door-open" : states\.engine \? "engine" : "default"/);
-assert.match(source, /known\.includes\(true\) \? true : known\.includes\(false\)/);
+assert.match(source, /SECURITY_BOOTSTRAP_MAX_AGE_MS = 60_000/);
+assert.match(source, /entityCandidates\.length/);
 assert.match(source, /if \(alarm === true\) return \{ key: "alarm"/);
 assert.match(source, /security-field\.armed,.security-field\.alarm\{opacity:1\}/);
 assert.match(source, /border-bottom-color:transparent/);
@@ -185,6 +186,40 @@ assert.ok(registry.has("starline-app-panel"));
 const Panel = registry.get("starline-app-panel");
 const runtime = Object.create(Panel.prototype);
 runtime._hass = { states: {} };
+assert.equal(runtime._isOn({ state: { state: "unknown" } }), null);
+assert.equal(runtime._isOn({ state: { state: "unexpected" } }), null);
+const armedEntityId = "binary_sensor.starline_armed";
+const oldBootstrap = {
+  entities: { armed: armedEntityId },
+  live_security: {
+    arm: true,
+    fetched_at: new Date(Date.now() - 86_400_000).toISOString(),
+  },
+};
+runtime._hass.states[armedEntityId] = { state: "on" };
+assert.equal(runtime._security(oldBootstrap).key, "armed");
+runtime._hass.states[armedEntityId] = { state: "off" };
+assert.equal(runtime._security(oldBootstrap).key, "disarmed", "current HA disarm must outrank old bootstrap arm=true");
+runtime._hass.states[armedEntityId] = { state: "unavailable" };
+assert.equal(runtime._security(oldBootstrap).key, "unknown", "unavailable HA security must not fall back to old bootstrap arm=true");
+runtime._hass.states[armedEntityId] = { state: "on" };
+assert.equal(runtime._security(oldBootstrap).key, "armed", "recovered HA security must become authoritative again");
+runtime._hass.states = {
+  "lock.starline_security": { state: "unlocked" },
+  [armedEntityId]: { state: "on" },
+};
+assert.equal(runtime._security({
+  entities: { lock: "lock.starline_security", armed: armedEntityId },
+  live_security: { arm: true, fetched_at: new Date().toISOString() },
+}).key, "disarmed", "the first reliable HA source must win a conflict deterministically");
+assert.equal(runtime._security({
+  entities: {},
+  live_security: { arm: true, fetched_at: new Date().toISOString() },
+}).key, "armed", "a fresh bootstrap may provide the initial security state");
+assert.equal(runtime._security({
+  entities: {},
+  live_security: { arm: true, fetched_at: new Date(Date.now() - 86_400_000).toISOString() },
+}).key, "unknown", "an expired bootstrap must not remain an armed authority");
 const geometryStyle = new Map();
 const geometryFrame = {
   dataset: {},
@@ -247,4 +282,4 @@ const recorderPoints = runtime._pointsFromHistory("device_tracker.starline", [[
 assert.equal(recorderPoints.length, 2, "compact GPS records inherit the series entity id");
 assert.equal(recorderPoints[1].timestamp, 1_700_000_060_000);
 
-console.log("StarLine v0.6.8 centred live-metric plaque checks passed");
+console.log("StarLine v0.6.9 authoritative security-quality checks passed");

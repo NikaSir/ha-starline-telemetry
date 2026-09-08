@@ -39,6 +39,7 @@ from .const import (
     PANEL_URL_PATH,
     PANEL_VERSION,
 )
+from .data_quality import normalize_binary_value
 
 _LOGGER = logging.getLogger(__name__)
 PANEL_STATIC_URL = f"/{DOMAIN}_static"
@@ -109,20 +110,7 @@ def _bootstrap_payload(hass: HomeAssistant, entry: ConfigEntry | None) -> dict[s
 
 def _normalize_arm(value: Any) -> bool | None:
     """Normalize current StarLine arm values from boolean and legacy payloads."""
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        if value == 1:
-            return True
-        if value in (0, 2):
-            return False
-        return None
-    raw = str(value or "").strip().lower()
-    if raw in {"1", "on", "true", "locked", "armed"}:
-        return True
-    if raw in {"0", "2", "off", "false", "unlocked", "disarmed"}:
-        return False
-    return None
+    return normalize_binary_value(value, legacy_disarmed=True)
 
 
 def _core_runtime_device(hass: HomeAssistant, device_id: str):

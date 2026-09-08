@@ -1,6 +1,6 @@
 # StarLine specialized-panel compliance
 
-Audit target: UI 0.6.8 / integration 0.6.9 against NikaS Standard v2.2, Navigation Contract v1.2 and Shell Contract v2.1.
+Audit target: UI 0.6.9 / integration 0.6.10 against NikaS Standard v2.2, Navigation Contract v1.2 and Shell Contract v2.1.
 
 | Requirement | Status | Evidence / field acceptance |
 |---|---|---|
@@ -14,7 +14,7 @@ Audit target: UI 0.6.8 / integration 0.6.9 against NikaS Standard v2.2, Navigati
 | Vehicle selector status lamps | PASS | Existing 9 px online/offline lamps remain independent of selection styling and update without remounting. |
 | Zoom contract | PASS / FIELD CHECK | 75–200%, native scroll through 100%, pan only above 100%, focal pinch, fit-axis locks, persistent per-vehicle state and two-finger reset are preserved. |
 | Safe title navigation | PASS | Deterministic precedence and timestamped hand-off support House v13, Rooms v11, Actions and Infrastructure; `history.back()` is forbidden. |
-| Data truth and commands | PASS | Registry/integration data only, explicit unknown/unavailable, and no Home Assistant service call. |
+| Data truth and commands | PASS | Reliable Home Assistant security state is authoritative; bootstrap is initial-only and expires after 60 seconds; discrete telemetry preserves true/false/unknown; no Home Assistant service call. |
 | Deterministic frontend delivery | PASS | The checked-in bundle is generated from one source by `scripts/build_frontend_bundle.py`; canonical CI checks source/bundle parity. |
 | Canonical documentation | PASS | The repository vendors the exact v2.2 UI standard, v1.2 navigation contract, frontend release standard and canonical checker. |
 | Packaged integration identity | PASS | The approved local integration icon and NikaS StarLine identity are unchanged. |

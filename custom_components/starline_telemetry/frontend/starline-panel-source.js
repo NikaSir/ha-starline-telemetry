@@ -1,4 +1,4 @@
-const UI_VERSION = "0.6.8";
+const UI_VERSION = "0.6.9";
 const ASSET_BASE = "/starline_telemetry_static/assets";
 const EVENT_WINDOW_HOURS = 24;
 const TRIP_WINDOW_HOURS = 72;
@@ -10,6 +10,7 @@ const SOURCE_ROUTE_AT_KEY = "nikas.specialized.source_route_at.v1";
 const RETURN_ROUTE_KEY = "nikas.starline.return_route.v1";
 const SAFE_DEFAULT_ROUTE = "/dashboard-house-v13/home";
 const SOURCE_ROUTE_TTL_MS = 30_000;
+const SECURITY_BOOTSTRAP_MAX_AGE_MS = 60_000;
 const CAR_VISIBLE_WIDTH_PERCENT = 72;
 const CAR_WHEEL_LINE_BOTTOM_PX = 167;
 const CAR_REFERENCE_VISIBLE_SIZE = Object.freeze({
@@ -539,7 +540,9 @@ class StarLineAppPanel extends HTMLElement {
     if (!entity?.state) return null;
     const raw = String(entity.state.state).toLowerCase();
     if (UNRELIABLE_STATES.has(raw)) return null;
-    return ["on", "true", "open", "unlocked", "running"].includes(raw);
+    if (["on", "true", "open", "unlocked", "running"].includes(raw)) return true;
+    if (["off", "false", "closed", "locked", "stopped"].includes(raw)) return false;
+    return null;
   }
 
   _isLocked(entity) {
@@ -585,11 +588,28 @@ class StarLineAppPanel extends HTMLElement {
 
   _security(vehicle) {
     const alarm = this._isOn(this._entity(vehicle, ["alarm"]));
-    const live = vehicle?.live_security?.arm;
-    const candidates = [live, ...["lock", "armed", "security", "arm", "guard"].map((key) => this._isLocked(this._entity(vehicle, [key])))];
-    const known = candidates.filter((value) => typeof value === "boolean");
-    const armed = known.includes(true) ? true : known.includes(false) ? false : null;
     if (alarm === true) return { key: "alarm", label: "Тревога", icon: "mdi:alarm-light" };
+    const entityKeys = ["lock", "armed", "security", "arm", "guard"];
+    const entityCandidates = entityKeys
+      .map((key) => this._entity(vehicle, [key]))
+      .filter(Boolean);
+    const current = entityCandidates
+      .map((entity) => this._isLocked(entity))
+      .find((value) => typeof value === "boolean");
+    if (typeof current === "boolean") {
+      return current
+        ? { key: "armed", label: "Включена", icon: "mdi:shield-lock" }
+        : { key: "disarmed", label: "Снята", icon: "mdi:shield-off-outline" };
+    }
+    if (entityCandidates.length) {
+      return { key: "unknown", label: "Нет данных", icon: "mdi:shield-outline" };
+    }
+
+    const live = vehicle?.live_security;
+    const fetchedAt = Date.parse(live?.fetched_at || "");
+    const age = Date.now() - fetchedAt;
+    const armed = typeof live?.arm === "boolean" && Number.isFinite(fetchedAt) &&
+      age >= 0 && age <= SECURITY_BOOTSTRAP_MAX_AGE_MS ? live.arm : null;
     if (armed === true) return { key: "armed", label: "Включена", icon: "mdi:shield-lock" };
     if (armed === false) return { key: "disarmed", label: "Снята", icon: "mdi:shield-off-outline" };
     return { key: "unknown", label: "Нет данных", icon: "mdi:shield-outline" };

@@ -44,7 +44,7 @@ In core-bridge mode, the request reuses the active core StarLine SLNet session i
 
 ## Current baseline
 
-Internal integration version: `0.6.9`
+Internal integration version: `0.6.10`
 
 Platforms:
 
@@ -65,6 +65,8 @@ Initial telemetry mapping includes, when provided by the device:
 - GPS position and accuracy.
 
 Entities are created only when the corresponding field is present in the first device snapshot, to avoid filling Home Assistant with permanently unavailable entities.
+
+Discrete telemetry keeps three states: explicit `true`, explicit `false` and unknown. A missing or `null` field in a later successful response makes the existing binary sensor unknown; it is never treated as `false`. The panel treats a reliable Home Assistant security entity as authoritative and uses the read-only bootstrap snapshot only during initial loading while that snapshot is no more than 60 seconds old.
 
 ## Update model
 
