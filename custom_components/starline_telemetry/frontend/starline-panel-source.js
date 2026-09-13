@@ -1,4 +1,4 @@
-const UI_VERSION = "0.6.9";
+const UI_VERSION = "0.6.10";
 const ASSET_BASE = "/starline_telemetry_static/assets";
 const EVENT_WINDOW_HOURS = 24;
 const TRIP_WINDOW_HOURS = 72;
@@ -8,7 +8,7 @@ const UNRELIABLE_STATES = new Set(["", "none", "null", "unknown", "unavailable"]
 const SOURCE_ROUTE_KEY = "nikas.specialized.source_route.v1";
 const SOURCE_ROUTE_AT_KEY = "nikas.specialized.source_route_at.v1";
 const RETURN_ROUTE_KEY = "nikas.starline.return_route.v1";
-const SAFE_DEFAULT_ROUTE = "/dashboard-house-v13/home";
+const SAFE_DEFAULT_ROUTE = "/home/overview";
 const SOURCE_ROUTE_TTL_MS = 30_000;
 const SECURITY_BOOTSTRAP_MAX_AGE_MS = 60_000;
 const CAR_VISIBLE_WIDTH_PERCENT = 72;
@@ -45,6 +45,7 @@ const midpoint = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 const domainOf = (entityId) => String(entityId || "").split(".", 1)[0];
 
 function canonicalBaseRoute(pathname) {
+  if (pathname === "/home/overview") return "/home/overview";
   if (pathname === "/dashboard-house-v13" || pathname.startsWith("/dashboard-house-v13/")) {
     return "/dashboard-house-v13/home";
   }
@@ -71,34 +72,8 @@ function safeBaseRoute(candidate) {
   }
 }
 
-function captureReturnRoute(configured) {
-  const params = new URLSearchParams(window.location.search);
-  const explicit = safeBaseRoute(params.get("return_to")) || safeBaseRoute(params.get("from"));
-  let handedOff = null;
-  let saved = null;
-  try {
-    const handedOffRaw = sessionStorage.getItem(SOURCE_ROUTE_KEY);
-    const handedOffAtRaw = sessionStorage.getItem(SOURCE_ROUTE_AT_KEY);
-    const handedOffAt = Number(handedOffAtRaw);
-    const handedOffAge = Date.now() - handedOffAt;
-    const fresh = handedOffRaw !== null
-      && handedOffAtRaw !== null
-      && Number.isFinite(handedOffAt)
-      && handedOffAge >= 0
-      && handedOffAge <= SOURCE_ROUTE_TTL_MS;
-    handedOff = fresh ? safeBaseRoute(handedOffRaw) : null;
-    sessionStorage.removeItem(SOURCE_ROUTE_KEY);
-    sessionStorage.removeItem(SOURCE_ROUTE_AT_KEY);
-    saved = safeBaseRoute(sessionStorage.getItem(RETURN_ROUTE_KEY));
-  } catch (_err) {}
-  const route = explicit
-    || handedOff
-    || saved
-    || safeBaseRoute(document.referrer)
-    || safeBaseRoute(configured)
-    || SAFE_DEFAULT_ROUTE;
-  try { sessionStorage.setItem(RETURN_ROUTE_KEY, route); } catch (_err) {}
-  return route;
+function captureReturnRoute() {
+  return SAFE_DEFAULT_ROUTE;
 }
 
 function navigate(route) {
@@ -468,7 +443,7 @@ class StarLineAppPanel extends HTMLElement {
     this._stack = this.$(".view-stack");
     this._zoom = new ZoomController(this._viewport, this._canvas, "starline.panel.canvas.v1.default");
     this.$(".menu").addEventListener("click", (event) => openHomeAssistantMenu(event.currentTarget));
-    this.$(".title-button").addEventListener("click", () => navigate(this._returnRoute));
+    this.$(".title-button").addEventListener("click", () => navigate(SAFE_DEFAULT_ROUTE));
     this.$(".refresh").addEventListener("click", () => this._refresh());
     this.$(".vehicle-selector").addEventListener("click", (event) => {
       const button = event.target.closest("button[data-vehicle]");

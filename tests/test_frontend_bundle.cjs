@@ -10,18 +10,18 @@ const source = fs.readFileSync("custom_components/starline_telemetry/frontend/st
 const bundle = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app.js", "utf8");
 const builder = fs.readFileSync("scripts/build_frontend_bundle.py", "utf8");
 
-assert.equal(integration.version, "0.6.10");
-assert.equal(manifest.version, "0.6.9");
+assert.equal(integration.version, "0.6.11");
+assert.equal(manifest.version, "0.6.10");
 assert.equal(manifest.ui_standard, "2.2");
 assert.equal(manifest.entry_module, "starline-app.js");
 assert.equal(manifest.web_component, "starline-app-panel");
 assert.equal(manifest.runtime_architecture, "single_stable_component_point_patching");
 assert.equal(manifest.shell.header.top_safe_area, "env(safe-area-inset-top)");
-assert.match(constants, /PANEL_VERSION = "0\.6\.9-ui-standard-v2\.2"/);
+assert.match(constants, /PANEL_VERSION = "0\.6\.10-ui-standard-v2\.2"/);
 assert.equal(manifest.summary.metric_tile_layout, "bold_centered_label_above_centered_icon_value_row");
 assert.equal(manifest.summary.metric_label_weight, 750);
 assert.equal(manifest.summary.metric_reading_alignment, "icon_and_value_same_line_centered");
-assert.match(constants, /PANEL_PARENT_ROUTE = "\/dashboard-house-v13\/home"/);
+assert.match(constants, /PANEL_PARENT_ROUTE = "\/home\/overview"/);
 assert.match(panel, /starline-app\.js\?v=/);
 assert.match(panel, /read_only.*True/);
 
@@ -50,18 +50,8 @@ assert.match(source, /createNikasShellScrollBoundaryGuard/);
 assert.match(source, /touchmove", moveTouch, \{ passive: false, capture: true \}/);
 assert.match(source, /this\._scrollBoundaryCleanup\?\.\(\)/);
 
-assert.match(source, /return_to/);
-assert.match(source, /params\.get\("from"\)/);
-assert.match(source, /nikas\.specialized\.source_route\.v1/);
-assert.match(source, /\/dashboard-house-v13\/home/);
-assert.match(source, /\/dashboard-rooms-v11\/rooms/);
-assert.match(source, /\/dashboard-actions\/home/);
-assert.match(source, /\/dashboard-infrastructure\/overview/);
-assert.match(source, /nikas\.specialized\.source_route_at\.v1/);
-assert.match(source, /handedOffRaw !== null/);
-assert.match(source, /handedOffAtRaw !== null/);
-assert.match(source, /handedOffAge >= 0/);
-assert.match(source, /removeItem\(SOURCE_ROUTE_KEY\)/);
+require("./test_title_parent.cjs");
+assert.match(source, /const SAFE_DEFAULT_ROUTE = "\/home\/overview"/);
 assert.doesNotMatch(source, /["']\/dashboard-house["']/);
 assert.match(source, /history\.pushState/);
 assert.match(source, /location-changed/);
