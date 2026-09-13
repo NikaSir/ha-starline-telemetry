@@ -56,6 +56,10 @@ jobs:
               raise SystemExit('Missing panel assets: ' + ', '.join(missing))
           print(f"Validated {len(manifest['assets'])} panel assets")
           PY
+      - name: Verify pinned standard documents
+        run: |
+          python scripts/check_standard_documents.py
+          python tests/test_standard_document_sync.py
 
   validate:
     needs: [repository-checks, hacs, hassfest]
