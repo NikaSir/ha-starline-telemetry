@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.6.9",
+  "version": "0.6.10",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "ui_standard": "2.2",
@@ -187,13 +187,8 @@
     "fallback_time": "home_assistant_detection_timestamp"
   },
   "navigation": {
-    "title_action": "return_to_safe_originating_base_panel",
-    "allowed_base_routes": [
-      "/dashboard-house-v13/home",
-      "/dashboard-rooms-v11/rooms",
-      "/dashboard-actions/home",
-      "/dashboard-infrastructure/overview"
-    ],
+    "title_action": "return_to_hierarchical_parent",
+    "parent_route": "/home/overview",
     "history_back_used": false
   },
   "rendering": {

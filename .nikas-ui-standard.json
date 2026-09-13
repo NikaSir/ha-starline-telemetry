@@ -1,10 +1,10 @@
 {
   "version": "2.2",
-  "navigation_contract_version": "1.2",
+  "navigation_contract_version": "1.3",
   "standard_path": "docs/NIKAS_SPECIALIZED_PANEL_UI_STANDARD.md",
-  "standard_sha256": "2a15e5c2483f0fa959faff54cd29144ddb8c392e6da4546bd4c5034bf652c2c7",
+  "standard_sha256": "e150c4ce087635c0cbc25031a6ce1b8489ba0902da3745335af88457484963dc",
   "navigation_contract_path": "docs/NIKAS_PANEL_NAVIGATION_CONTRACT.md",
-  "navigation_contract_sha256": "79923d2de82ef59ab76e37491f75ba7eb7e7c4c23e62d75142744159cae64229",
+  "navigation_contract_sha256": "04c81cb498de3bd9ac35b7e70ed8a90fa4376ed3a31bcedb1fe5cc3cb53e05a6",
   "role": "specialized",
   "artifact_kind": "production",
   "runtime_files": [
@@ -15,7 +15,7 @@
     "scripts/build_frontend_bundle.py",
     "custom_components/starline_telemetry/frontend/starline-panel-source.js"
   ],
-  "ui_version": "0.6.9",
+  "ui_version": "0.6.10",
   "web_component": "starline-app-panel",
   "bundle_contract": {
     "autonomous": true,
@@ -37,11 +37,7 @@
     "button_marker": "class=\"title-button\"",
     "version_marker": "<span>UI v${UI_VERSION}</span>",
     "focus_marker": ".title-button:focus-visible",
-    "pressed_marker": ".title-button:active",
-    "explicit_precedence_marker": "safeBaseRoute(params.get(\"return_to\")) || safeBaseRoute(params.get(\"from\"))",
-    "capture_once_marker": "if (!this._returnRoute) this._returnRoute = captureReturnRoute",
-    "timestamp_required_marker": "handedOffRaw !== null",
-    "future_timestamp_rejection_marker": "handedOffAge >= 0"
+    "pressed_marker": ".title-button:active"
   },
   "forbidden_runtime_markers": [
     "history.back("
@@ -110,5 +106,11 @@
     "selection_is_independent": true,
     "update_mode": "point-patch",
     "accessible_status_required": true
+  },
+  "header_navigation": {
+    "contract_version": "1.3",
+    "mode": "declared-parent",
+    "main_parent_route": "/home/overview",
+    "ambient_return_authority": false
   }
 }
