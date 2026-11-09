@@ -1,5 +1,6 @@
 # StarLine package documentation
 
+- [Changelog for `0.7.0-beta001`](../CHANGELOG.md#070-beta001) covers the two-vehicle summary and fuel calibration.
 - `CHANGELOG_0.6.10.md` — authoritative security source and three-state discrete telemetry.
 - `CHANGELOG_0.6.9.md` — panel lifecycle availability before dependency and cloud I/O.
 - `CHANGELOG_0.6.7.md` — NikaS name and approved local brand icon publication.
@@ -11,8 +12,8 @@
 - `CHANGELOG_0.6.1.md` — normalized visible vehicle scale, centre and wheel-line geometry.
 - `CHANGELOG_0.6.0.md` — unified stable runtime and NikaS UI standard v1.7 rebuild.
 - `REPOSITORY_OWNERSHIP.md` — single-repository ownership policy.
-- `IPHONE_SUMMARY_TARGET.md` — approved first-tab mobile geometry.
-- `ASSET_PLAN.md` — local layered image contract.
+- `IPHONE_SUMMARY_TARGET.md` — phone portrait acceptance criteria for the shared summary.
+- `ASSET_PLAN.md` — local vehicle portrait assets.
 - `CHANGELOG_0.5.3.md` — connection placement, viewport-filling scenes and explicit security state.
 - `CHANGELOG_0.5.4.md` — separate initial summary pages for 130 and 683.
 - `CHANGELOG_0.5.5.md` — state-aware vehicle scenes and security fields.

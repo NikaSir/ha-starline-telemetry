@@ -1,10 +1,10 @@
 contract: starline_telemetry_dashboard
-version: 0.6.9
+version: "0.7.0-beta001"
 ui_standard: 2.2
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
 repository_policy: self_contained
-parent: /dashboard-house-v13/home
+parent: /home/overview
 panel_path: /starline
 
 rules:
@@ -21,17 +21,15 @@ rules:
   stable_shell_mount: once
   telemetry_rendering: point_patch_in_animation_frame
   historical_runtime_inheritance: forbidden
-  originating_route_capture: safe_base_routes_only
 
 assets:
   local_only: true
   base_path: custom_components/starline_telemetry/frontend/assets
   manifest: custom_components/starline_telemetry/frontend/panel_manifest.json
-  backgrounds_have_live_data: false
-  car_layer_separate: true
+  telemetry_in_artwork: forbidden
+  portraits: matched_geometry_and_camera_angle
+  state_based_image_switching: forbidden
   files:
-    - starline-bg-130-v2.webp
-    - starline-bg-683-v2.webp
     - starline-car-130-v2.webp
     - starline-car-683-v2.webp
 
@@ -62,7 +60,7 @@ zoom:
   max_percent: 200
   allow_pan_when_zoomed: true
   clamp_to_scaled_content_bounds: true
-  persistence: local_panel_client_and_vehicle
+  persistence: local_panel_client_with_separate_overview_and_vehicle_keys
   persisted_offsets: valid_above_100_percent_only
   restore_before_visible_frame: true
   tab_switch_native_scroll: top
@@ -94,71 +92,60 @@ role_aliases:
 
 summary_screen:
   title: Сводка
-  purpose: selected_vehicle_daily_overview
-  vehicle_order: [130-й, 683-й]
-  vehicle_cards: selected_one_per_page
-  vehicle_switcher: fixed_two_page_selector
-  model_label: Nissan MURANO Z52
-  iphone_target: true
+  purpose: simultaneous_vehicle_summary
+  vehicle_order: ["130", "683"]
+  vehicle_cards: simultaneous_overview
+  vehicle_switcher: hidden_on_summary
+  phone_portrait: stacked_cards_at_100_percent_with_details_collapsed
+  model_label: Nissan Murano
   workspace_heading: false
-  status_rows: 2
   per_vehicle:
-    hero_layers: [background, vehicle_image, live_metrics, security_badge, connectivity]
-    live_metrics_row: [battery, fuel, engine_temperature, cabin_temperature]
-    live_metric_tile:
+    portrait: fixed_local_color_matched_image
+    primary_metrics: [fuel, battery, engine_running, security]
+    metric_tile:
       label: bold_centered_top
       label_weight: 750
       reading: centered_icon_and_value_same_line
-      size_change: forbidden
-    perimeter_row: [hood, door, trunk]
-    operational_row: [engine_running, last_event, parking]
-    last_event: compact_in_operational_row
-    last_event_width: expanded_from_parking_column
-    connection_position: left_free_scene
-    scene_height: fill_available_summary_viewport
+      text_overflow_policy: wrap_without_clipping
+    perimeter: [door, hood, trunk]
+    secondary_metrics: expandable_details
+    freshness:
+      source: home_assistant_last_reported_then_last_updated
+      max_age_minutes: 30
+      timestamp_timezone: Europe/Moscow
+      states: [fresh, stale, unavailable]
     security:
-      armed: {label: Включена, tone: blue}
-      disarmed: {label: Снята, tone: neutral}
-      alarm: {label: Тревога, tone: red}
-      unknown: {label: Нет данных, tone: neutral}
-    state_scene:
-      image_priority: [hood_open, trunk_open, doors_open, engine_running, default]
+      armed: Включена
+      disarmed: Снята
+      alarm: Тревога
+      stale: Устарело
+      unknown: Нет данных
       armed_source_priority: [lock, armed, security, arm, guard]
-      security_conflict_policy: first_reliable_home_assistant_source_wins
-      current_source: home_assistant_then_fresh_bootstrap_60_seconds
+      conflict_policy: first_reliable_home_assistant_source_wins
       bootstrap_max_age_seconds: 60
       unavailable_home_assistant_state: unknown_without_bootstrap_fallback
-      refresh_behavior: force_current_read_only_vehicle_state
-      vehicle_horizontal_alignment: centered_by_asset_alpha_bounds
-      vehicle_scale_basis: visual_landmarks_over_alpha_bounds
-      visible_vehicle_width_percent: 72
-      vehicle_proportion_reference: "683"
-      landmark_basis: [wheel_line, roofline, front_bumper, rear_bumper]
-      landmark_height_scale: {"130": 1.04, "683": 1.0}
-      reference_visible_size_by_state:
-        default: [1824, 793]
-        engine: [1866, 843]
-        door_open: [1862, 840]
-        hood_open: [1692, 825]
-        trunk_open: [1599, 820]
-      wheel_line_bottom_px: 167
-      narrow_wheel_line_bottom_px: 161
-      state_asset_geometry: normalized_without_transition_shift
-      security_field_geometry: grounded_half_dome_open_at_wheel_line
-      security_field_lower_edge: open_and_faded
-      scene_height_source: remaining_fixed_shell_grid_viewport
-      metric_tile_layout: bold_centered_label_above_centered_icon_value_row
-      status_row_height_px: 74
-      status_value_lines: 2
-      operational_columns_percent: [40, 38, 22]
-      operational_value_layout: icon_with_aligned_label_and_value
-      engine_value_line: single_line_no_clip
-      text_overflow_policy: wrap_without_font_reduction
-      independent_overlays: [armed_field, alarm_field, offline_desaturation]
-      animated_alarm: forbidden
-      textual_state_retained: true
-    typography: maximum_without_badge_resize
   map: false
+
+fuel_calibration:
+  view: diagnostics
+  write_access: home_assistant_admin
+  storage: home_assistant_per_starline_device
+  source_unit: "%"
+  start: capture_fresh_home_assistant_report_before_refuel
+  mark_full: confirm_refuel_ended_with_receipt
+  finish: require_increased_fuel_with_state_change_after_full_mark
+  finish_window_minutes: 30
+  panel_sync_seconds: 60
+  panel_sync_transport: local_home_assistant_websocket
+  inputs: [receipt_litres, optional_confirmed_capacity_litres]
+  minimum_compatible_full_refuels: 3
+  full_value: median_of_compatible_full_reports
+  factor: 100_divided_by_median_full_value
+  consistency: full_value_spread_and_receipt_checks
+  display_estimate: only_for_fresh_readings_from_matching_calibrated_source
+  raw_reading_visible: true
+  factory_factors: forbidden
+  vehicle_commands: forbidden
 
 typography:
   reference: official_starline_mobile_app
@@ -185,11 +172,13 @@ shell:
     icon_size_px: 25
     title_px: 23
     subtitle_px: 14
-    title_action: return_to_originating_base_panel
+    title_action: return_to_declared_parent
+  peer_selector:
+    visible_on: [history, trips, diagnostics]
   bottom_navigation:
     fixed_outside_zoom_viewport: true
     minimum_target_height_px: 52
-    icon_size_px: 28
+    icon_size_px: 26
     label_size_px: 12
   work_viewport:
     count: 1
@@ -205,7 +194,8 @@ rendering:
   map_cards: stable_per_vehicle_view
 
 navigation:
-  allowed_base_routes: [/dashboard-house, /dashboard-actions, /dashboard-infrastructure]
+  title_parent: /home/overview
+  ambient_return_authority: false
   title_uses_history_back: false
   title_uses_push_state_and_location_changed: true
 
@@ -248,7 +238,7 @@ tabs:
     commands: []
   - id: diagnostics
     title: Диагностика
-    purpose: source_health_entity_availability_and_read_only_boundary
+    purpose: source_health_entity_availability_and_local_fuel_calibration
     commands: []
 
 migration:
