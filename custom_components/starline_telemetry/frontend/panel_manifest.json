@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.6.10",
+  "version": "0.7.0-beta001",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "ui_standard": "2.2",
@@ -35,7 +35,7 @@
       103
     ],
     "feedback": "Масштаб 100%",
-    "persistence": "per_panel_client_and_vehicle"
+    "persistence": "separate_overview_and_per_vehicle_keys"
   },
   "typography": {
     "reference": "official_starline_mobile_app",
@@ -74,40 +74,48 @@
       "body_height_px": 52,
       "button_height_px": 44,
       "status_lamp_px": 9,
-      "selection_state_independent": true
+      "selection_state_independent": true,
+      "visible_on": [
+        "history",
+        "trips",
+        "diagnostics"
+      ]
     },
     "host_boundary": "ha-panel",
     "content_max_width_px": 1280,
     "scroll_boundary_guard": "capture-non-passive-touchmove"
   },
   "summary": {
-    "vehicle_switcher": "fixed_two_page_selector",
-    "vehicle_cards": "selected_one_per_page",
-    "vehicle_page_order": [
-      "130-й",
-      "683-й"
+    "vehicle_cards": "simultaneous_overview",
+    "vehicle_order": [
+      "130",
+      "683"
     ],
-    "operational_order": [
+    "phone_portrait_layout": "stacked",
+    "phone_portrait_target": "both_cards_visible_at_100_percent_with_details_collapsed",
+    "primary_metrics": [
+      "fuel",
+      "battery",
       "engine_running",
-      "last_event",
-      "parking"
+      "security"
     ],
-    "last_event_width": "expanded_from_parking_column",
-    "connection_position": "left_free_scene",
-    "scene_height": "fills_available_summary_viewport",
+    "perimeter_roles": [
+      "door",
+      "hood",
+      "trunk"
+    ],
+    "secondary_metrics_location": "expandable_vehicle_details",
+    "vehicle_images": "matched_static_portraits",
+    "metric_tile_layout": "bold_centered_label_above_centered_icon_value_row",
+    "metric_label_weight": 750,
+    "metric_reading_alignment": "icon_and_value_same_line_centered",
     "security_states": {
       "armed": "Охрана / Включена",
       "disarmed": "Охрана / Снята",
       "alarm": "Охрана / Тревога",
+      "stale": "Охрана / Устарело",
       "unknown": "Охрана / Нет данных"
     },
-    "state_scene_image_priority": [
-      "hood_open",
-      "trunk_open",
-      "doors_open",
-      "engine_running",
-      "default"
-    ],
     "armed_source_priority": [
       "lock",
       "armed",
@@ -117,67 +125,13 @@
     ],
     "security_conflict_policy": "first_reliable_home_assistant_source_wins",
     "security_current_source": "home_assistant_then_fresh_bootstrap_60_seconds",
-    "refresh_behavior": "force_current_read_only_vehicle_state",
-    "vehicle_geometry": {
-      "mode": "visual_landmark_frame",
-      "visible_width_percent": 72,
-      "proportion_reference_vehicle": "683",
-      "landmark_basis": [
-        "wheel_line",
-        "roofline",
-        "front_bumper",
-        "rear_bumper"
-      ],
-      "landmark_height_scale": {
-        "130": 1.04,
-        "683": 1
-      },
-      "reference_visible_size_by_state": {
-        "default": [
-          1824,
-          793
-        ],
-        "engine": [
-          1866,
-          843
-        ],
-        "door_open": [
-          1862,
-          840
-        ],
-        "hood_open": [
-          1692,
-          825
-        ],
-        "trunk_open": [
-          1599,
-          820
-        ]
-      },
-      "horizontal": "visible_alpha_center",
-      "wheel_line_bottom_px": 167,
-      "narrow_wheel_line_bottom_px": 161,
-      "state_assets_share_geometry_model": true
-    },
-    "scene_height_source": "remaining_fixed_shell_grid_viewport",
-    "metric_tile_layout": "bold_centered_label_above_centered_icon_value_row",
-    "metric_label_weight": 750,
-    "metric_reading_alignment": "icon_and_value_same_line_centered",
-    "status_row_height_px": 74,
-    "status_value_lines": 2,
-    "operational_columns_percent": [
-      40,
-      38,
-      22
-    ],
-    "operational_value_layout": "icon_with_aligned_label_and_value",
-    "engine_value_line": "single_line_no_clip",
-    "security_field_lower_edge": "open_and_faded",
-    "security_field_geometry": "grounded_half_dome_open_at_wheel_line",
-    "state_scene_overlays": [
-      "armed_field",
-      "alarm_field",
-      "offline_desaturation"
+    "freshness_source": "home_assistant_last_reported_then_last_updated",
+    "freshness_max_age_minutes": 30,
+    "timestamp_timezone": "Europe/Moscow",
+    "data_quality": [
+      "fresh",
+      "stale",
+      "unavailable"
     ]
   },
   "history": {
@@ -198,17 +152,17 @@
     "unchanged_image_src_reassigned": false
   },
   "assets": [
-    "assets/starline-bg-130-v2.webp",
-    "assets/starline-bg-683-v2.webp",
     "assets/starline-car-130-v2.webp",
-    "assets/starline-car-683-v2.webp",
-    "assets/starline-car-130-engine-v1.webp",
-    "assets/starline-car-130-door-open-v1.webp",
-    "assets/starline-car-130-hood-open-v1.webp",
-    "assets/starline-car-130-trunk-open-v1.webp",
-    "assets/starline-car-683-engine-v1.webp",
-    "assets/starline-car-683-door-open-v1.webp",
-    "assets/starline-car-683-hood-open-v1.webp",
-    "assets/starline-car-683-trunk-open-v1.webp"
-  ]
+    "assets/starline-car-683-v2.webp"
+  ],
+  "diagnostics": {
+    "fuel_calibration": {
+      "write_access": "home_assistant_admin",
+      "storage": "home_assistant_per_starline_device",
+      "source_unit": "%",
+      "minimum_compatible_full_refuels": 3,
+      "model": "median_full_percentage_with_receipt_consistency_checks",
+      "vehicle_commands": false
+    }
+  }
 }

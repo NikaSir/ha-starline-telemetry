@@ -44,7 +44,7 @@ In core-bridge mode, the request reuses the active core StarLine SLNet session i
 
 ## Current baseline
 
-Internal integration version: `0.6.10`
+This branch targets integration and panel version `0.7.0-beta001`.
 
 Platforms:
 
@@ -147,15 +147,11 @@ The native panel lives at `/starline` and uses the fixed phone-first navigation:
 
 ### Сводка
 
-The daily-use screen follows the information hierarchy of the native StarLine mobile application while keeping the NikaS Home Assistant visual language:
+The shared summary shows Murano 130 first and Murano 683 second. The cards use blue and black portraits with matching geometry and camera angle. Text and icons show engine, security and perimeter states.
 
-- separate initial pages for 130 and 683, selected by the fixed vehicle selector;
-- one full-height vehicle card and its online status per page;
-- state-aware vehicle imagery for running engine, open doors, open hood and open trunk;
-- independent static fields for armed, alarm and unavailable states;
-- compact GPS, GSM, battery, fuel, cabin/engine temperature and parking telemetry;
-- vehicle mnemonic with security, engine and perimeter state;
-- latest significant StarLine state event without adding write controls.
+Each card shows fuel, battery, engine state and security, with separate text for doors, hood and trunk. The battery uses volts for voltage and percent when the source supplies a charge reading. Expand **Подробнее** for temperatures, ignition, parking brake, odometer, OBD and signal readings when available. The summary distinguishes stale data, unavailable data and loss of connection to Home Assistant. Report times use Moscow time.
+
+The selector appears on History, Trips and Diagnostics. The header and bottom navigation stay fixed while the workspace scrolls or zooms. The summary saves its zoom separately from the per-vehicle views. Double-tap with two fingers to reset to 100%.
 
 ### История
 
@@ -165,7 +161,11 @@ The timeline prefers the official StarLine event journal for the last 24 hours. 
 
 The 72-hour movement view uses the recorded StarLine `device_tracker` history. Home Assistant's native Map card renders the historical path, while the panel groups GPS points into trips and estimates travelled distance using the haversine formula.
 
-The safe fallback parent is `/dashboard-house-v13/home`; when opened from an approved base panel, the title returns to that originating canonical entry route.
+### Диагностика
+
+Diagnostics shows the telemetry source, freshness and entity bindings. A Home Assistant administrator can record full refuels for each vehicle to estimate remaining fuel from a percentage source. The raw reading remains available in the details. See [the calibration procedure](dashboard/README.md#fuel-calibration).
+
+The panel title opens the declared parent, the native Home Assistant overview at `/home/overview`.
 
 Data source priority is role-by-role:
 
@@ -191,7 +191,7 @@ See:
 8. The native panel remains read-only even when its compatibility source exposes writable entities.
 9. Event history uses only the official read-only StarLine journal endpoint, under a separate quota ceiling, with Recorder as a state-transition-only fallback.
 10. Corresponding panel typography is never smaller than the official StarLine mobile application reference.
-11. The UI follows NikaS specialized-panel standard v2.2 and Navigation Contract v1.2: one fixed shell, one transform canvas, deterministic source return, cached views and point telemetry patches without routine DOM remounts.
+11. The UI uses one fixed shell and one transform canvas with cached views and point telemetry patches. NikaS specialized-panel standard v2.2 and Navigation Contract v1.3 define the shell and the declared parent route.
 
 ## License
 

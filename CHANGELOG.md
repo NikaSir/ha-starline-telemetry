@@ -1,8 +1,14 @@
 # Changelog
 
-Current integration version: [`0.6.11`](custom_components/starline_telemetry/manifest.json).
+Current branch version is [`0.7.0-beta001`](custom_components/starline_telemetry/manifest.json).
 
 Existing version-specific notes remain under [`docs/`](docs/) and earlier project history remains in Git history; neither is reconstructed here.
+
+## 0.7.0-beta001
+
+- Shows Murano 130 and 683 together on **Сводка** with matched blue and black portraits. Keeps the vehicle selector on History, Trips and Diagnostics.
+- Keeps the fixed shell and separates summary zoom from per-vehicle zoom. Patches telemetry in place and displays stale or unavailable values explicitly. Summary report times use Europe/Moscow.
+- Adds administrator-only full-refuel recording in Diagnostics. Estimates use at least three compatible samples from the same percentage source. The raw reading remains visible in the vehicle details.
 
 ## Repository maintenance — 2026-09-14
 

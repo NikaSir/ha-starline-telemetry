@@ -12,12 +12,16 @@ from typing import Any
 
 import voluptuous as vol
 
+from homeassistant.auth.models import User
+from homeassistant.auth.permissions.const import POLICY_READ
 from homeassistant.components import frontend, panel_custom, websocket_api
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import Context, HomeAssistant, State, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.storage import Store
 
 from .api import (
     StarLineApiError,
@@ -40,6 +44,12 @@ from .const import (
     PANEL_VERSION,
 )
 from .data_quality import normalize_binary_value
+from .fuel_calibration import (
+    FuelCalibration,
+    FuelCalibrationError,
+    select_fuel_state,
+    state_reported_at,
+)
 
 _LOGGER = logging.getLogger(__name__)
 PANEL_STATIC_URL = f"/{DOMAIN}_static"
@@ -54,7 +64,10 @@ _DATA_HISTORY_LOCKS = "native_panel_history_locks"
 _DATA_HISTORY_BUDGET = "native_panel_history_budget"
 _DATA_EVENT_DESCRIPTIONS = "native_panel_event_descriptions"
 _DATA_LIVE_SECURITY_CACHE = "native_panel_live_security_cache"
+_DATA_FUEL_CALIBRATION = "native_panel_fuel_calibration"
+_DATA_CORE_REFRESH = "native_panel_core_refresh"
 _LIVE_SECURITY_CACHE_SECONDS = 60
+_CORE_REFRESH_SECONDS = 60
 _CORE_UNIQUE_ID = re.compile(r"^starline-(?P<key>.+)-(?P<device_id>\d+)$")
 _TELEMETRY_UNIQUE_ID = re.compile(r"^(?P<device_id>\d+)_(?P<key>.+)$")
 
@@ -108,6 +121,57 @@ def _bootstrap_payload(hass: HomeAssistant, entry: ConfigEntry | None) -> dict[s
     return {"panel": {"id": "starline", "title": PANEL_TITLE, "path": f"/{PANEL_URL_PATH}", "icon": PANEL_ICON, "parent_route": PANEL_PARENT_ROUTE, "preferred_view": PANEL_PREFERRED_VIEW, "version": PANEL_VERSION, "read_only": True}, "source": {"primary": "starline_telemetry" if any("starline_telemetry" in vehicle["sources"].values() for vehicle in vehicles) else "core_starline", "core_entries": len(hass.config_entries.async_entries(CORE_STARLINE_DOMAIN)), "telemetry_entries": len(hass.config_entries.async_entries(DOMAIN)), "bridge_entry_id": entry.entry_id if entry is not None else None}, "vehicles": vehicles}
 
 
+def _panel_fuel_calibration(hass: HomeAssistant) -> FuelCalibration:
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    if _DATA_FUEL_CALIBRATION not in domain_data:
+        domain_data[_DATA_FUEL_CALIBRATION] = FuelCalibration(
+            Store(hass, 1, f"{DOMAIN}.fuel_calibration", private=True, atomic_writes=True)
+        )
+    return domain_data[_DATA_FUEL_CALIBRATION]
+
+
+def _fuel_state(hass: HomeAssistant, vehicle: dict[str, Any]) -> State | None:
+    return select_fuel_state(vehicle["entities"], hass.states.get)
+
+
+async def _async_attach_fuel_calibration(
+    hass: HomeAssistant, vehicle: dict[str, Any], user: User
+) -> None:
+    state = _fuel_state(hass, vehicle)
+    if not user.is_admin and (
+        state is None or not user.permissions.check_entity(state.entity_id, POLICY_READ)
+    ):
+        return
+    try:
+        view = await _panel_fuel_calibration(hass).async_view(vehicle["device_id"], state)
+    except (HomeAssistantError, OSError):
+        _LOGGER.exception("Unable to load StarLine fuel calibration")
+        return
+    pending = view["pending"]
+    if not user.is_admin and pending is not None and not user.permissions.check_entity(
+        pending["before"]["entity_id"], POLICY_READ
+    ):
+        view["pending"] = None
+    vehicle["fuel_calibration"] = view
+
+
+def _report_times(
+    hass: HomeAssistant, vehicles: list[dict[str, Any]], user: User
+) -> dict[str, dict[str, str]]:
+    """Read current HA report times for the vehicle entities visible to this user."""
+    reports: dict[str, dict[str, str]] = {}
+    entity_ids = {entity_id for vehicle in vehicles for entity_id in vehicle["entities"].values()}
+    for entity_id in entity_ids:
+        if not user.is_admin and not user.permissions.check_entity(entity_id, POLICY_READ):
+            continue
+        if (state := hass.states.get(entity_id)) is not None:
+            reports[entity_id] = {
+                "value": state.state,
+                "reported_at": state_reported_at(state).astimezone(UTC).isoformat(),
+            }
+    return reports
+
+
 def _normalize_arm(value: Any) -> bool | None:
     """Normalize current StarLine arm values from boolean and legacy payloads."""
     return normalize_binary_value(value, legacy_disarmed=True)
@@ -117,6 +181,8 @@ def _core_runtime_device(hass: HomeAssistant, device_id: str):
     """Return the official core StarLine runtime device when available."""
     for entry in hass.config_entries.async_entries(CORE_STARLINE_DOMAIN):
         account = getattr(entry, "runtime_data", None)
+        if account is None:
+            account = hass.data.get(CORE_STARLINE_DOMAIN, {}).get(entry.entry_id)
         api = getattr(account, "api", None)
         for device in getattr(api, "devices", {}).values():
             if str(getattr(device, "device_id", "")) == device_id:
@@ -124,8 +190,33 @@ def _core_runtime_device(hass: HomeAssistant, device_id: str):
     return None, None
 
 
+async def _refresh_core_starline(hass: HomeAssistant, user: User) -> bool:
+    """Refresh official StarLine state once for all vehicles on manual refresh."""
+    if not hass.services.has_service(CORE_STARLINE_DOMAIN, "update_state"):
+        return False
+    domain_data = _history_domain_data(hass)
+    async with _history_lock(hass, _DATA_CORE_REFRESH):
+        previous = domain_data.get(_DATA_CORE_REFRESH)
+        if previous is not None and time.monotonic() - previous[0] < _CORE_REFRESH_SECONDS:
+            return previous[1]
+        try:
+            await hass.services.async_call(
+                CORE_STARLINE_DOMAIN,
+                "update_state",
+                blocking=True,
+                context=Context(user_id=user.id),
+            )
+        except Exception:  # noqa: BLE001
+            _LOGGER.warning("Unable to refresh core StarLine data through Home Assistant")
+            refreshed = False
+        else:
+            refreshed = True
+        domain_data[_DATA_CORE_REFRESH] = (time.monotonic(), refreshed)
+        return refreshed
+
+
 async def _live_security_state(
-    hass: HomeAssistant, device_id: str, force: bool
+    hass: HomeAssistant, device_id: str, force: bool, *, core_refreshed: bool = False
 ) -> dict[str, Any]:
     """Read authoritative current security state without exposing credentials."""
     cache = _history_domain_data(hass).setdefault(_DATA_LIVE_SECURITY_CACHE, {})
@@ -155,7 +246,7 @@ async def _live_security_state(
             source = "starline_open_api"
         else:
             account, device = _core_runtime_device(hass, device_id)
-            if force and account is not None:
+            if force and not core_refreshed and account is not None:
                 try:
                     await account.update()
                 except Exception as err:  # noqa: BLE001
@@ -187,14 +278,21 @@ async def _live_security_state(
 
 
 async def _bootstrap_payload_live(
-    hass: HomeAssistant, entry: ConfigEntry | None, force: bool
+    hass: HomeAssistant, entry: ConfigEntry | None, force: bool, user: User
 ) -> dict[str, Any]:
-    """Build panel bootstrap with current read-only security snapshots."""
+    """Build panel bootstrap with current security and fuel calibration."""
     payload = _bootstrap_payload(hass, entry)
+    payload["panel"]["fuel_calibration_can_edit"] = user.is_admin
     vehicles = payload["vehicles"]
+    core_refreshed = (
+        force
+        and user.is_admin
+        and any("core_starline" in vehicle["sources"].values() for vehicle in vehicles)
+        and await _refresh_core_starline(hass, user)
+    )
     security = await asyncio.gather(
         *(
-            _live_security_state(hass, str(vehicle["device_id"]), force)
+            _live_security_state(hass, str(vehicle["device_id"]), force, core_refreshed=core_refreshed)
             for vehicle in vehicles
         ),
         return_exceptions=True,
@@ -202,8 +300,10 @@ async def _bootstrap_payload_live(
     for vehicle, result in zip(vehicles, security, strict=True):
         if isinstance(result, Exception):
             _LOGGER.warning("Unable to load live StarLine security: %s", result)
-            continue
-        vehicle["live_security"] = result
+        else:
+            vehicle["live_security"] = result
+        await _async_attach_fuel_calibration(hass, vehicle, user)
+    payload["reports"] = _report_times(hass, vehicles, user)
     return payload
 
 
@@ -382,8 +482,76 @@ async def websocket_panel_bootstrap(
     entry_id = msg.get("entry_id")
     entry = hass.config_entries.async_get_entry(entry_id) if entry_id else None
     connection.send_result(
-        msg["id"], await _bootstrap_payload_live(hass, entry, msg["force"])
+        msg["id"], await _bootstrap_payload_live(hass, entry, msg["force"], connection.user)
     )
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/panel/report_times"})
+@websocket_api.async_response
+async def websocket_panel_report_times(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    vehicles = _discover_vehicle_entities(hass)
+    for vehicle in vehicles:
+        await _async_attach_fuel_calibration(hass, vehicle, connection.user)
+    calibrations = {
+        vehicle["device_id"]: vehicle["fuel_calibration"]
+        for vehicle in vehicles
+        if "fuel_calibration" in vehicle
+    }
+    connection.send_result(
+        msg["id"],
+        {"reports": _report_times(hass, vehicles, connection.user), "calibrations": calibrations},
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/panel/fuel_calibration",
+        vol.Required("device_id"): vol.All(str, vol.Match(r"^[0-9]+$")),
+        vol.Required("action"): vol.In(("start", "mark_full", "finish", "cancel")),
+        vol.Optional("started_at"): vol.All(str, vol.Length(max=64)),
+        vol.Optional("litres"): vol.Any(int, float),
+        vol.Optional("capacity_l"): vol.Any(int, float),
+    }
+)
+@websocket_api.async_response
+async def websocket_panel_fuel_calibration(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    if not connection.user.is_admin:
+        connection.send_error(msg["id"], "unauthorized", "Administrator access is required")
+        return
+    device_id = msg["device_id"]
+    vehicle = next(
+        (item for item in _discover_vehicle_entities(hass) if item["device_id"] == device_id), None
+    )
+    if vehicle is None:
+        connection.send_error(msg["id"], "not_found", "StarLine vehicle was not found")
+        return
+    try:
+        view = await _panel_fuel_calibration(hass).async_apply(
+            device_id,
+            msg["action"],
+            lambda: _fuel_state(hass, vehicle),
+            started_at=msg.get("started_at"),
+            litres=msg.get("litres"),
+            capacity_l=msg.get("capacity_l"),
+        )
+    except FuelCalibrationError as err:
+        connection.send_error(msg["id"], err.code, str(err))
+        return
+    except (HomeAssistantError, OSError):
+        _LOGGER.exception("Unable to save StarLine fuel calibration")
+        connection.send_error(
+            msg["id"], "fuel_calibration_unavailable", "Fuel calibration is unavailable"
+        )
+        return
+    connection.send_result(msg["id"], view)
 
 
 @websocket_api.websocket_command(
@@ -427,6 +595,8 @@ async def async_register_native_panel(hass: HomeAssistant, entry: ConfigEntry) -
     if not domain_data.get(_DATA_WS_REGISTERED):
         websocket_api.async_register_command(hass, websocket_panel_bootstrap)
         websocket_api.async_register_command(hass, websocket_panel_history)
+        websocket_api.async_register_command(hass, websocket_panel_fuel_calibration)
+        websocket_api.async_register_command(hass, websocket_panel_report_times)
         domain_data[_DATA_WS_REGISTERED] = True
     if not domain_data.get(_DATA_STATIC_REGISTERED):
         frontend_dir = Path(__file__).parent / "frontend"
