@@ -1,4 +1,4 @@
-const UI_VERSION = "0.7.0-beta001";
+const UI_VERSION = "0.7.0-beta002";
 const ASSET_BASE = "/starline_telemetry_static/assets";
 const EVENT_WINDOW_HOURS = 24;
 const TRIP_WINDOW_HOURS = 72;
@@ -510,6 +510,11 @@ class StarLineAppPanel extends HTMLElement {
       .trip-list{display:grid;gap:10px}.trip-card{overflow:hidden;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.trip-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px}.trip-meta strong{font-size:19px}.trip-meta span{display:block;margin-top:4px;color:var(--muted);font-size:12px}.trip-times{display:flex;align-items:center;gap:5px}.trip-times ha-icon{--mdc-icon-size:18px;color:var(--accent)}.route-svg{display:block;width:100%;height:128px;color:var(--accent);background:color-mix(in srgb,var(--accent) 4%,var(--surface))}.route-svg text{fill:white;font-size:5px;font-weight:800}.route-marker{fill:var(--accent)}.trip-foot{display:flex;justify-content:space-between;padding:8px 12px;color:var(--muted);font-size:12px}.map-host{min-height:230px;margin-bottom:12px;overflow:hidden;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.map-host>*{display:block;width:100%;height:100%}
       .diagnostic-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.diag-tile{min-height:74px;padding:11px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}.diag-tile span{display:block;color:var(--muted);font-size:12px}.diag-tile strong{display:block;margin-top:7px;font-size:15px;overflow-wrap:anywhere}.diag-tile.ok strong{color:var(--ok)}.diag-tile.warn strong{color:var(--warn)}.diag-tile.danger strong{color:var(--danger)}.read-only-banner{display:grid;grid-template-columns:30px minmax(0,1fr);gap:9px;margin-top:10px;padding:12px;border-radius:16px;background:color-mix(in srgb,var(--accent) 9%,var(--surface))}.read-only-banner ha-icon{color:var(--accent)}.read-only-banner strong{font-size:15px}.read-only-banner span{display:block;margin-top:4px;color:var(--muted);font-size:12px;line-height:1.3}.diag-list{margin-top:10px;overflow:hidden;border:1px solid var(--border);border-radius:16px}.diag-entity{min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 11px;border-bottom:1px solid var(--border);background:var(--surface)}.diag-entity:last-child{border-bottom:0}.diag-entity strong{font-size:13px}.diag-entity span{display:block;margin-top:3px;color:var(--muted);font-size:12px;overflow-wrap:anywhere}.diag-state{text-align:right}.diag-state button{width:34px;height:34px;border:0;background:transparent;color:var(--accent)}
       .empty-state{min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;color:var(--muted)}.empty-state ha-icon{--mdc-icon-size:44px;color:var(--accent)}.empty-state strong{color:var(--primary-text-color);font-size:18px}.empty-state span{max-width:420px;font-size:13px;line-height:1.35}.empty-state button{min-height:44px;padding:0 16px;border:0;border-radius:14px;background:var(--accent);color:white;font-weight:800}.spin{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+      @media(width < 700px) and (orientation:portrait){
+        .view.two-vehicles.active:not(:has(.vehicle-pane.active .summary-details[open])){min-height:100%;grid-auto-rows:minmax(min-content,1fr);align-content:stretch}
+        .view.two-vehicles.active:not(:has(.vehicle-pane.active .summary-details[open])) .summary-card{display:flex;flex-direction:column;height:100%}
+        .view.two-vehicles.active:not(:has(.vehicle-pane.active .summary-details[open])) :is(.summary-hero,.metrics){flex:1 0 auto}
+      }
       @media(max-width:390px){.title-button{width:100%;padding-inline:8px}.title-button strong{font-size:21px}.title-button span{font-size:13px}.metric{gap:2px;padding:4px 3px}.metric-reading{gap:3px}.metric strong{font-size:14px}.identity strong{font-size:18px}}
       @media(min-width:700px){.vehicle-selector{max-width:1280px;width:100%;margin:auto;border:0}.view[data-view-pane="status"].active{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}}
     `;
@@ -679,6 +684,13 @@ class StarLineAppPanel extends HTMLElement {
     const ignition = this._entity(vehicle, ["ignition"]) ||
       (core?.source === "core_starline" && domainOf(core.entityId) === "binary_sensor" ? core : null);
     return this._stateSpec(ignition, "Зажигание", "mdi:car-key", "Включено", "Выключено");
+  }
+
+  _overviewPower(vehicle) {
+    const engine = this._engineMetric(vehicle);
+    const ignition = this._ignitionMetric(vehicle);
+    const useIgnition = ["muted", "stale"].includes(engine.tone) && ["ok", "warn"].includes(ignition.tone);
+    return useIgnition ? { primary: ignition, secondary: engine } : { primary: engine, secondary: ignition };
   }
 
   _perimeter(vehicle) {
@@ -892,6 +904,7 @@ class StarLineAppPanel extends HTMLElement {
         pane.classList.toggle("active", known.has(id) && (view === "status" || id === String(this._vehicleId)));
       }
       if (view === "status") {
+        this._setClass(section, "two-vehicles", vehicles.length === 2);
         this.$(".empty-state", section).hidden = vehicles.length > 0;
         this._setText(section, ".empty-state strong", this._bootstrap ? "Нет доступных автомобилей" : "Загружаем данные StarLine");
       }
@@ -921,10 +934,11 @@ class StarLineAppPanel extends HTMLElement {
 
     const fuel = this._fuelMetric(vehicle);
     const security = this._security(vehicle);
+    const power = this._overviewPower(vehicle);
     const metrics = [
       fuel,
       this._metricSpec(vehicle, ["battery"], "АКБ", "mdi:car-battery", 1),
-      this._engineMetric(vehicle),
+      power.primary,
       { label: "Охрана", value: security.label, icon: security.icon, entityId: "",
         tone: security.key === "alarm" ? "danger" : security.key === "unknown" ? "muted" : "" },
     ];
@@ -938,7 +952,7 @@ class StarLineAppPanel extends HTMLElement {
     const extra = [
       this._metricSpec(vehicle, ["etemp", "engine_temperature"], "Темп. двигателя", "mdi:thermometer", 0),
       this._metricSpec(vehicle, ["ctemp", "cabin_temperature"], "Темп. салона", "mdi:car-seat-heater", 0),
-      this._ignitionMetric(vehicle),
+      power.secondary,
       this._stateSpec(this._entity(vehicle, ["hbrake", "hand_brake"]), "Ручник", "mdi:car-brake-hold", "Поднят", "Снят"),
       this._metricSpec(vehicle, ["odometer", "mileage"], "Пробег", "mdi:counter", 0),
       this._metricSpec(vehicle, ["obd_errors", "errors"], "Ошибки OBD", "mdi:car-wrench", 0),

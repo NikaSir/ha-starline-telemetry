@@ -97,3 +97,14 @@ panel._hass.states[coreEngine] = state("on");
 panel._hass.states[coreIgnition] = state("off");
 assert.equal(panel._engineMetric(coreVehicle).value, "Работает");
 assert.equal(panel._ignitionMetric(coreVehicle).value, "Выключено");
+
+const ignitionOnly = { entities: { run: coreIgnition }, sources: { run: "core_starline" } };
+assert.equal(panel._overviewPower(ignitionOnly).primary.label, "Зажигание");
+assert.equal(panel._overviewPower(ignitionOnly).primary.value, "Выключено");
+assert.equal(panel._overviewPower(ignitionOnly).secondary.label, "Двигатель");
+assert.equal(panel._overviewPower(ignitionOnly).secondary.value, "Нет данных");
+assert.equal(panel._overviewPower(coreVehicle).primary.label, "Двигатель");
+panel._hass.states[coreEngine] = state("unavailable");
+assert.equal(panel._overviewPower(coreVehicle).primary.label, "Зажигание");
+panel._hass.states[coreIgnition] = state("unavailable");
+assert.equal(panel._overviewPower(coreVehicle).primary.value, "Нет данных");

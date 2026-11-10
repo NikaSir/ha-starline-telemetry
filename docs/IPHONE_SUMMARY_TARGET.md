@@ -1,6 +1,6 @@
 # iPhone summary target
 
-Check `0.7.0-beta001` on the iPhone 15 Pro Max in portrait with the sidebar collapsed and both **Подробнее** sections closed.
+Check `0.7.0-beta002` on the iPhone 15 Pro Max in portrait with the sidebar collapsed and both **Подробнее** sections closed.
 
 1. At 100% scale, both cards fit in the initial workspace. Murano 130 is above Murano 683. Their blue and black portraits share the same proportions and camera angle.
 2. The summary has no vehicle selector. The selector appears on History, Trips and Diagnostics.
