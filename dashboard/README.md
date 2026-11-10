@@ -10,7 +10,7 @@ The bridge resolves entities from the Home Assistant entity registry by stable S
 
 When standalone telemetry becomes available, integration-owned roles (`{device_id}_{role}`) take precedence role-by-role. The panel layout does not change.
 
-## UI v0.7.0-beta001
+## UI v0.7.0-beta002
 
 The functional reference is the native StarLine mobile application, while colors, geometry and navigation remain aligned with the NikaS Home Assistant panel language.
 

@@ -1,8 +1,13 @@
 # Changelog
 
-Current branch version is [`0.7.0-beta001`](custom_components/starline_telemetry/manifest.json).
+Current branch version is [`0.7.0-beta002`](custom_components/starline_telemetry/manifest.json).
 
 Existing version-specific notes remain under [`docs/`](docs/) and earlier project history remains in Git history; neither is reconstructed here.
+
+## 0.7.0-beta002
+
+- Balance both overview cards within the available portrait workspace on iPhone.
+- Use fresh ignition telemetry in the overview when engine status is stale or unavailable. Keep the engine reading in the details.
 
 ## 0.7.0-beta001
 
