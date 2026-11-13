@@ -103,7 +103,7 @@ class FuelCalibrationTest(unittest.IsolatedAsyncioTestCase):
         async def history(entity_id, start, end):
             self.assertEqual(FUEL_ID, entity_id)
             self.assertEqual(datetime(2026, 11, 12, 20, 49, tzinfo=UTC), start)
-            self.assertEqual(datetime(2026, 11, 13, 21, 19, tzinfo=UTC), end)
+            self.assertEqual(datetime(2026, 11, 13, 23, 0, tzinfo=UTC), end)
             return [
                 reading(49, -130), reading(57, -80), reading(57, -6, changed_offset=-80),
                 reading(99, 0, entity_id=SECOND_FUEL_ID), reading(58, -3),
@@ -131,6 +131,84 @@ class FuelCalibrationTest(unittest.IsolatedAsyncioTestCase):
             await self._apply("record_receipt", **fields)
         self.assertEqual("receipt_already_saved", duplicate.exception.code)
         self.assertEqual(saved, await self._view())
+
+    async def test_receipt_search_finds_the_delayed_murano_683_reading(self):
+        self.now = datetime(2026, 11, 12, 17, 0, tzinfo=UTC)
+        self._report(57, entity_id=SECOND_FUEL_ID)
+        before_at = datetime(2026, 11, 12, 0, 3, 39, tzinfo=UTC)
+        after_at = datetime(2026, 11, 12, 15, 33, 40, tzinfo=UTC)
+        readings = []
+        for value, timestamp in ((24, before_at), (57, after_at)):
+            readings.append(SimpleNamespace(
+                entity_id=SECOND_FUEL_ID, state=str(value),
+                attributes={"unit_of_measurement": "%"},
+                last_updated=timestamp, last_changed=timestamp,
+            ))
+
+        async def history(entity_id, start, end):
+            self.assertEqual(SECOND_FUEL_ID, entity_id)
+            return [state for state in readings if start <= state.last_updated <= end]
+
+        fields = {
+            "receipt_at": "2026-11-12T17:54", "litres": 25.55, "read_history": history,
+        }
+        preview = await self._apply("preview_receipt", device_id="683", **fields)
+        pair = preview["receipt_preview"]
+        self.assertEqual((24, 57), (pair["before"]["value"], pair["after"]["value"]))
+        self.assertEqual("2026-11-12T15:33:40+00:00", pair["after"]["reported_at"])
+        saved = await self._apply(
+            "record_receipt", device_id="683",
+            expected_after_at=pair["after"]["reported_at"], **fields,
+        )
+        self.assertEqual(1, len(saved["samples"]))
+
+    async def test_receipt_search_prioritizes_the_first_hour_and_handles_delayed_recovery(self):
+        self.now = datetime(2026, 11, 13, 22, 0, tzinfo=UTC)
+        receipt = datetime(2026, 11, 13, 14, 0, tzinfo=UTC)
+        self._report(57, entity_id=SECOND_FUEL_ID)
+        cases = (
+            ([(45, 57), (240, 90)], 57),
+            ([(20, 25), (40, "unavailable"), (240, 57), (350, 90)], 57),
+            ([(-2, "unavailable"), (240, 57)], 57),
+            ([(40, "unavailable"), (420, 57)], 57),
+            ([(40, "unavailable"), (421, 57)], None),
+        )
+        for changes, expected in cases:
+            with self.subTest(changes=changes):
+                readings = []
+                for minute, value in [(-10, 24), *changes]:
+                    at = receipt + timedelta(minutes=minute)
+                    readings.append(SimpleNamespace(
+                        entity_id=SECOND_FUEL_ID, state=str(value),
+                        attributes={"unit_of_measurement": "%"},
+                        last_updated=at, last_changed=at,
+                    ))
+
+                async def history(entity_id, start, end):
+                    self.assertEqual(SECOND_FUEL_ID, entity_id)
+                    return [state for state in readings if start <= state.last_updated <= end]
+
+                fields = {
+                    "device_id": "683", "receipt_at": "2026-11-13T17:00",
+                    "litres": 25.55, "read_history": history,
+                }
+                if expected is None:
+                    with self.assertRaises(self.module.FuelCalibrationError) as caught:
+                        await self._apply("preview_receipt", **fields)
+                    self.assertEqual("receipt_history_missing", caught.exception.code)
+                else:
+                    preview = await self._apply("preview_receipt", **fields)
+                    pair = preview["receipt_preview"]
+                    self.assertEqual((24, expected), (pair["before"]["value"], pair["after"]["value"]))
+                self.assertIsNone(self.storage.data)
+                if changes == [(40, "unavailable"), (420, 57)]:
+                    self.assertEqual("2026-11-13T21:00:00+00:00", pair["after"]["reported_at"])
+                    saved = await self._apply(
+                        "record_receipt", expected_after_at=pair["after"]["reported_at"], **fields
+                    )
+                    self.assertEqual([pair], saved["samples"])
+                    self.storage = MemoryStore()
+                    self.calibration = self.module.FuelCalibration(self.storage)
 
     async def test_receipt_accepts_an_increase_just_before_the_receipt_without_live_data(self):
         self.now = datetime(2026, 11, 13, 23, 0, tzinfo=UTC)
@@ -178,6 +256,32 @@ class FuelCalibrationTest(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual("receipt_already_saved", caught.exception.code)
         self.assertEqual(1, len((await self._view())["samples"]))
+
+    async def test_receipt_without_an_increase_after_a_short_outage_is_not_saved(self):
+        self.now = datetime(2026, 10, 31, 13, 0, tzinfo=UTC)
+        self._report(24, entity_id=SECOND_FUEL_ID)
+        readings = []
+        for state, hour, minute, second in (
+            ("24", 8, 4, 33), ("unavailable", 8, 17, 3),
+            ("24", 8, 28, 51), ("24", 8, 40, 34),
+        ):
+            timestamp = datetime(2026, 10, 31, hour, minute, second, tzinfo=UTC)
+            readings.append(SimpleNamespace(
+                entity_id=SECOND_FUEL_ID, state=state,
+                attributes={"unit_of_measurement": "%"},
+                last_updated=timestamp, last_changed=timestamp,
+            ))
+
+        async def history(entity_id, start, end):
+            return [state for state in readings if start <= state.last_updated <= end]
+
+        with self.assertRaises(self.module.FuelCalibrationError) as caught:
+            await self._apply(
+                "record_receipt", device_id="683", receipt_at="2026-10-31T11:20",
+                litres=24.07, read_history=history,
+            )
+        self.assertEqual("receipt_history_missing", caught.exception.code)
+        self.assertIsNone(self.storage.data)
 
     async def test_receipt_without_a_recorded_increase_is_not_a_calibration_sample(self):
         self.now = datetime(2026, 11, 13, 23, 0, tzinfo=UTC)

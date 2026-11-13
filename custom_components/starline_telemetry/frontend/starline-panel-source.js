@@ -1,4 +1,4 @@
-const UI_VERSION = "0.7.0-beta003";
+const UI_VERSION = "0.7.0-beta004";
 const ASSET_BASE = "/starline_telemetry_static/assets";
 const EVENT_WINDOW_HOURS = 24;
 const TRIP_WINDOW_HOURS = 72;
@@ -23,7 +23,7 @@ const MOSCOW_RECEIPT_TIME = new Intl.DateTimeFormat("ru-RU", {
 });
 const FUEL_ERRORS = {
   invalid_receipt_at: "Проверьте дату и время по чеку (МСК).",
-  receipt_history_missing: "В истории HA пока нет подходящих показаний до и после заправки. Проверьте время по чеку или повторите после обновления телеметрии.",
+  receipt_history_missing: "В истории HA нет подходящего роста уровня топлива в пределах 7 часов после чека. Проверьте время по чеку или повторите после обновления телеметрии.",
   receipt_already_saved: "Эта заправка уже записана.",
   receipt_history_changed: "Показания изменились. Проверьте их ещё раз.",
   fuel_unavailable: "Показание топлива недоступно.",
@@ -1094,8 +1094,9 @@ class StarLineAppPanel extends HTMLElement {
     form.dataset.phase = sample ? "record_receipt" : "preview_receipt";
     form.dataset.afterAt = sample?.after.reported_at ?? "";
     this.$(".fuel-receipt-preview", form).hidden = !sample;
+    const delayed = sample && Date.parse(sample.after.reported_at) - Date.parse(sample.receipt_at) > 3_600_000;
     this._setText(form, ".fuel-receipt-preview", sample
-      ? `До: ${sample.before.value}% · ${this._formatReport(Date.parse(sample.before.reported_at))}. После: ${sample.after.value}% · ${this._formatReport(Date.parse(sample.after.reported_at))}.`
+      ? `До: ${sample.before.value}% · ${this._formatReport(Date.parse(sample.before.reported_at))}. После: ${sample.after.value}% · ${this._formatReport(Date.parse(sample.after.reported_at))}.${delayed ? " Показание поступило больше чем через час. Проверьте, что оно относится к этой заправке." : ""}`
       : "");
     this._setText(form, "button[type=submit]", sample ? "Сохранить заправку" : "Найти показания");
   }

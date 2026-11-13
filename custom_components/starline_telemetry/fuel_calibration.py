@@ -19,6 +19,8 @@ FUEL_ROLES = ("fuel", "fuel_percent", "fuel_litres", "fuel_volume")
 MAX_REPORT_AGE = timedelta(minutes=30)
 REFUEL_FINISH_WINDOW = timedelta(minutes=30)
 RECEIPT_BEFORE_WINDOW = timedelta(minutes=5)
+RECEIPT_PREFERRED_WINDOW = timedelta(hours=1)
+RECEIPT_AFTER_WINDOW = timedelta(hours=7)
 RECEIPT_BASELINE_LOOKBACK = timedelta(days=1)
 MOSCOW_TIME = ZoneInfo("Europe/Moscow")
 MAX_SAMPLES = 20
@@ -141,22 +143,30 @@ def _parse_receipt_at(value: str | None, now: datetime) -> datetime:
 
 
 def _receipt_reports(
-    states: Sequence[State], entity_id: str, receipt_at: datetime, end: datetime
+    states: Sequence[State],
+    entity_id: str,
+    receipt_at: datetime,
+    end: datetime,
+    min_gain: float,
 ) -> tuple[FuelReport, FuelReport]:
     before: FuelReport | None = None
     best_pair: tuple[FuelReport, FuelReport] | None = None
-    best_gain = 0.0
+    best_gain = min_gain
     window_start = receipt_at - RECEIPT_BEFORE_WINDOW
+    preferred_end = receipt_at + RECEIPT_PREFERRED_WINDOW
     for state in sorted(states, key=lambda state: state.last_updated):
         if state.entity_id != entity_id:
             continue
         timestamp = state.last_updated
+        if timestamp > preferred_end and best_pair is not None:
+            return best_pair
         if not receipt_at - RECEIPT_BASELINE_LOOKBACK <= timestamp <= end:
             continue
         try:
             report = _capture_report(state, timestamp, reported_at=timestamp)
         except FuelCalibrationError:
-            before = None
+            # Recorder may report an outage across the refuel. Keep the last
+            # valid pre-refuel reading with its original timestamp.
             continue
         if timestamp <= window_start:
             before = report
@@ -169,6 +179,8 @@ def _receipt_reports(
             continue
         gain = report["value"] - before["value"]
         if gain > best_gain:
+            if timestamp > preferred_end:
+                return before, report
             best_pair = before, report
             best_gain = gain
         if timestamp < receipt_at and gain <= 0:
@@ -215,7 +227,8 @@ def _same_refuel(first: RefuelSample, second: RefuelSample) -> bool:
     first_after = datetime.fromisoformat(first["after"]["reported_at"])
     return (
         first["litres"] == second["litres"]
-        and receipt_at - RECEIPT_BEFORE_WINDOW <= first_after <= receipt_at + REFUEL_FINISH_WINDOW
+        and receipt_at - RECEIPT_BEFORE_WINDOW
+        <= first_after <= receipt_at + RECEIPT_PREFERRED_WINDOW
     )
 
 
@@ -226,15 +239,20 @@ def _append_sample(record: VehicleCalibration, sample: RefuelSample) -> None:
     record["capacity_l"] = sample["capacity_l"]
 
 
+def _minimum_receipt_gain(litres: float, capacity_l: float | None) -> float:
+    if capacity_l is None:
+        substantial_refuel = litres >= MIN_PLATEAU_LITRES
+    else:
+        substantial_refuel = 100 * litres / capacity_l > MAX_CHECK_ERROR
+    return MAX_PLATEAU_CHANGE if substantial_refuel else 0.0
+
+
 def _has_implausible_gain(sample: RefuelSample, capacity_l: float | None) -> bool:
     gain = sample["after"]["value"] - sample["before"]["value"]
-    if gain < -MAX_PLATEAU_CHANGE:
-        return True
-    if capacity_l is None:
-        substantial_refuel = sample["litres"] >= MIN_PLATEAU_LITRES
-    else:
-        substantial_refuel = 100 * sample["litres"] / capacity_l > MAX_CHECK_ERROR
-    return substantial_refuel and gain <= MAX_PLATEAU_CHANGE
+    return gain < -MAX_PLATEAU_CHANGE or (
+        _minimum_receipt_gain(sample["litres"], capacity_l) > 0
+        and gain <= MAX_PLATEAU_CHANGE
+    )
 
 
 def _baseline_is_consistent(
@@ -389,19 +407,18 @@ class FuelCalibration:
         if entity_id is None or read_history is None:
             raise FuelCalibrationError("receipt_history_missing", "Fuel history is unavailable")
         filled, capacity = _refuel_amount(record, litres, capacity_l)
-        end = min(now, receipt_time + REFUEL_FINISH_WINDOW)
+        end = min(now, receipt_time + RECEIPT_AFTER_WINDOW)
         history = await read_history(entity_id, receipt_time - RECEIPT_BASELINE_LOOKBACK, end)
-        before, after = _receipt_reports(history, entity_id, receipt_time, end)
-        sample: RefuelSample = {
+        before, after = _receipt_reports(
+            history, entity_id, receipt_time, end, _minimum_receipt_gain(filled, capacity)
+        )
+        return {
             "before": before,
             "after": after,
             "litres": filled,
             "capacity_l": capacity,
             "receipt_at": receipt_iso,
         }
-        if _has_implausible_gain(sample, capacity):
-            raise FuelCalibrationError("receipt_history_missing", "Fuel increase is too small")
-        return sample
 
     @staticmethod
     def _mark_full(
