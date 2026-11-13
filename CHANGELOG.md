@@ -6,7 +6,7 @@ Existing version-specific notes remain under [`docs/`](docs/) and earlier projec
 
 ## 0.7.0-beta004
 
-- Extend the receipt-based history search to 60 minutes after the receipt to account for delayed fuel updates.
+- Search for a fuel increase up to seven hours after the receipt when the first hour has no suitable reading.
 
 ## 0.7.0-beta003
 

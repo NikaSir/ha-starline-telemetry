@@ -25,7 +25,7 @@ History, Trips and Diagnostics retain the vehicle selector. The shared summary k
 
 Use **Диагностика → Калибровка топлива** for the selected vehicle. A Home Assistant administrator can save observations from a fuel entity that reports percent.
 
-To record a completed full refill later, open **Добавить полный бак по чеку** and enter the receipt date, Moscow time and litres. Home Assistant compares the last recorded baseline, looking back up to 24 hours, with the strongest recorded increase from five minutes before to 60 minutes after the receipt. Review the displayed values and timestamps before choosing **Сохранить заправку**. You can save later while these reports are still in Recorder. The receipt does not count toward calibration if those readings are missing.
+To record a completed full refill later, open **Добавить полный бак по чеку** and enter the receipt date, Moscow time and litres. Home Assistant compares the last recorded baseline, looking back up to 24 hours, with the strongest recorded increase from five minutes before to 60 minutes after the receipt. If there is no suitable increase in that window, the search can use the first suitable increase within seven hours after the receipt, including a report after a connection outage. Review the displayed values and timestamps before choosing **Сохранить заправку**. You can save later while these reports are still in Recorder. The receipt does not count toward calibration if those readings are missing.
 
 To capture a refill live:
 

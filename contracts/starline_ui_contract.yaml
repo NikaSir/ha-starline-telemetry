@@ -141,7 +141,8 @@ fuel_calibration:
     source: home_assistant_recorder
     baseline_lookback_hours: 24
     before_window_minutes: 5
-    after_window_minutes: 60
+    preferred_after_window_minutes: 60
+    after_window_minutes: 420
     missing_readings: do_not_create_calibration_sample
   panel_sync_seconds: 60
   panel_sync_transport: local_home_assistant_websocket
