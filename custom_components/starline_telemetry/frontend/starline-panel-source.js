@@ -1,4 +1,4 @@
-const UI_VERSION = "0.7.0-beta003";
+const UI_VERSION = "0.7.0-beta004";
 const ASSET_BASE = "/starline_telemetry_static/assets";
 const EVENT_WINDOW_HOURS = 24;
 const TRIP_WINDOW_HOURS = 72;

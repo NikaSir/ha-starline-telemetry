@@ -19,6 +19,7 @@ FUEL_ROLES = ("fuel", "fuel_percent", "fuel_litres", "fuel_volume")
 MAX_REPORT_AGE = timedelta(minutes=30)
 REFUEL_FINISH_WINDOW = timedelta(minutes=30)
 RECEIPT_BEFORE_WINDOW = timedelta(minutes=5)
+RECEIPT_AFTER_WINDOW = timedelta(hours=1)
 RECEIPT_BASELINE_LOOKBACK = timedelta(days=1)
 MOSCOW_TIME = ZoneInfo("Europe/Moscow")
 MAX_SAMPLES = 20
@@ -215,7 +216,7 @@ def _same_refuel(first: RefuelSample, second: RefuelSample) -> bool:
     first_after = datetime.fromisoformat(first["after"]["reported_at"])
     return (
         first["litres"] == second["litres"]
-        and receipt_at - RECEIPT_BEFORE_WINDOW <= first_after <= receipt_at + REFUEL_FINISH_WINDOW
+        and receipt_at - RECEIPT_BEFORE_WINDOW <= first_after <= receipt_at + RECEIPT_AFTER_WINDOW
     )
 
 
@@ -389,7 +390,7 @@ class FuelCalibration:
         if entity_id is None or read_history is None:
             raise FuelCalibrationError("receipt_history_missing", "Fuel history is unavailable")
         filled, capacity = _refuel_amount(record, litres, capacity_l)
-        end = min(now, receipt_time + REFUEL_FINISH_WINDOW)
+        end = min(now, receipt_time + RECEIPT_AFTER_WINDOW)
         history = await read_history(entity_id, receipt_time - RECEIPT_BASELINE_LOOKBACK, end)
         before, after = _receipt_reports(history, entity_id, receipt_time, end)
         sample: RefuelSample = {

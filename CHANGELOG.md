@@ -1,8 +1,12 @@
 # Changelog
 
-Current branch version is [`0.7.0-beta003`](custom_components/starline_telemetry/manifest.json).
+Current branch version is [`0.7.0-beta004`](custom_components/starline_telemetry/manifest.json).
 
 Existing version-specific notes remain under [`docs/`](docs/) and earlier project history remains in Git history; neither is reconstructed here.
+
+## 0.7.0-beta004
+
+- Extend the receipt-based history search to 60 minutes after the receipt to account for delayed fuel updates.
 
 ## 0.7.0-beta003
 
