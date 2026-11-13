@@ -1,4 +1,4 @@
-const UI_VERSION = "0.7.0-beta002";
+const UI_VERSION = "0.7.0-beta003";
 const ASSET_BASE = "/starline_telemetry_static/assets";
 const EVENT_WINDOW_HOURS = 24;
 const TRIP_WINDOW_HOURS = 72;
@@ -17,7 +17,15 @@ const MOSCOW_TIME = new Intl.DateTimeFormat("ru-RU", {
   timeZone: "Europe/Moscow", day: "2-digit", month: "2-digit",
   hour: "2-digit", minute: "2-digit",
 });
+const MOSCOW_RECEIPT_TIME = new Intl.DateTimeFormat("ru-RU", {
+  timeZone: "Europe/Moscow", year: "numeric", month: "2-digit", day: "2-digit",
+  hour: "2-digit", minute: "2-digit",
+});
 const FUEL_ERRORS = {
+  invalid_receipt_at: "Проверьте дату и время по чеку (МСК).",
+  receipt_history_missing: "В истории HA пока нет подходящих показаний до и после заправки. Проверьте время по чеку или повторите после обновления телеметрии.",
+  receipt_already_saved: "Эта заправка уже записана.",
+  receipt_history_changed: "Показания изменились. Проверьте их ещё раз.",
   fuel_unavailable: "Показание топлива недоступно.",
   fuel_stale: "Показание топлива устарело. Дождитесь обновления StarLine.",
   fuel_unit_unsupported: "Калибровка доступна для показаний в процентах.",
@@ -461,10 +469,14 @@ class StarLineAppPanel extends HTMLElement {
     });
     this._stack.addEventListener("click", (event) => this._handleContentClick(event));
     this._stack.addEventListener("submit", (event) => {
-      if (!event.target.matches("[data-fuel-finish]")) return;
+      const action = event.target.dataset.phase;
+      if (!event.target.matches("[data-fuel-finish], [data-fuel-receipt]") || !action) return;
       event.preventDefault();
-      const action = event.target.dataset.phase === "finish" ? "finish" : "mark_full";
-      this._saveFuel(action, event.target.closest(".vehicle-pane"), action === "mark_full" ? event.target : null);
+      this._saveFuel(action, event.target.closest(".vehicle-pane"), action === "finish" ? null : event.target);
+    });
+    this._stack.addEventListener("input", (event) => {
+      const form = event.target.closest("[data-fuel-receipt]");
+      if (form) this._showReceiptPreview(form);
     });
     this._stack.addEventListener("pointerdown", (event) => this._startHold(event));
     ["pointerup", "pointercancel", "pointermove"].forEach((type) => this._stack.addEventListener(type, (event) => this._finishHold(event)));
@@ -505,7 +517,7 @@ class StarLineAppPanel extends HTMLElement {
       .fuel-calibration{display:grid;gap:8px;margin:12px 0;padding:12px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}
       .fuel-calibration p{margin:0;font-size:13px;line-height:1.35;overflow-wrap:anywhere}.fuel-calibration .fuel-message{color:var(--muted)}.fuel-calibration [hidden]{display:none}
       .fuel-calibration button,.fuel-link{min-height:44px;padding:5px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--primary-text-color);text-align:center}.fuel-calibration button:disabled{opacity:.65}.fuel-link{color:var(--accent);margin-top:4px}
-      .fuel-form,.fuel-form fieldset{display:grid;gap:8px}.fuel-form fieldset{border:0;margin:0;padding:0;min-width:0}.fuel-form label{display:grid;gap:4px;color:var(--muted);font-size:13px}.fuel-form input{width:100%;min-height:44px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--primary-text-color);font:inherit;font-size:16px}.fuel-form-actions{display:flex;flex-wrap:wrap;gap:6px}
+      .fuel-receipt summary{display:flex;align-items:center;min-height:44px;color:var(--accent);cursor:pointer;font-weight:700}.fuel-form,.fuel-form fieldset{display:grid;gap:8px}.fuel-form fieldset{border:0;margin:0;padding:0;min-width:0}.fuel-form label{display:grid;gap:4px;color:var(--muted);font-size:13px}.fuel-form input{width:100%;min-height:44px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--primary-text-color);font:inherit;font-size:16px}.fuel-form-actions{display:flex;flex-wrap:wrap;gap:6px}
       .view-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 2px 12px}.view-head strong{display:block;font-size:21px;line-height:1.05}.view-head span{display:block;margin-top:5px;color:var(--muted);font-size:13px}.view-head button{width:44px;height:44px;border:1px solid var(--border);border-radius:15px;background:var(--surface);color:var(--accent);display:grid;place-items:center}.history-day{margin-bottom:14px}.day-chip{display:inline-flex;margin:0 0 7px 5px;padding:5px 9px;border-radius:10px;background:color-mix(in srgb,var(--accent) 11%,var(--surface));font-size:16px;font-weight:800}.history-row{width:100%;min-height:62px;border:0;border-bottom:1px solid var(--border);background:var(--surface);color:var(--primary-text-color);display:grid;grid-template-columns:76px minmax(0,1fr);align-items:center;padding:8px 13px;text-align:left}.history-row:first-of-type{border-radius:16px 16px 0 0}.history-row:last-child{border-bottom:0;border-radius:0 0 16px 16px}.history-row time{color:var(--muted);font-size:16px}.history-row strong{font-size:18px;line-height:1.15}.source-note{margin:0 0 10px;padding:9px 12px;border-radius:13px;background:color-mix(in srgb,var(--accent) 7%,var(--surface));color:var(--muted);font-size:12px}
       .trip-list{display:grid;gap:10px}.trip-card{overflow:hidden;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.trip-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px}.trip-meta strong{font-size:19px}.trip-meta span{display:block;margin-top:4px;color:var(--muted);font-size:12px}.trip-times{display:flex;align-items:center;gap:5px}.trip-times ha-icon{--mdc-icon-size:18px;color:var(--accent)}.route-svg{display:block;width:100%;height:128px;color:var(--accent);background:color-mix(in srgb,var(--accent) 4%,var(--surface))}.route-svg text{fill:white;font-size:5px;font-weight:800}.route-marker{fill:var(--accent)}.trip-foot{display:flex;justify-content:space-between;padding:8px 12px;color:var(--muted);font-size:12px}.map-host{min-height:230px;margin-bottom:12px;overflow:hidden;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.map-host>*{display:block;width:100%;height:100%}
       .diagnostic-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.diag-tile{min-height:74px;padding:11px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}.diag-tile span{display:block;color:var(--muted);font-size:12px}.diag-tile strong{display:block;margin-top:7px;font-size:15px;overflow-wrap:anywhere}.diag-tile.ok strong{color:var(--ok)}.diag-tile.warn strong{color:var(--warn)}.diag-tile.danger strong{color:var(--danger)}.read-only-banner{display:grid;grid-template-columns:30px minmax(0,1fr);gap:9px;margin-top:10px;padding:12px;border-radius:16px;background:color-mix(in srgb,var(--accent) 9%,var(--surface))}.read-only-banner ha-icon{color:var(--accent)}.read-only-banner strong{font-size:15px}.read-only-banner span{display:block;margin-top:4px;color:var(--muted);font-size:12px;line-height:1.3}.diag-list{margin-top:10px;overflow:hidden;border:1px solid var(--border);border-radius:16px}.diag-entity{min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 11px;border-bottom:1px solid var(--border);background:var(--surface)}.diag-entity:last-child{border-bottom:0}.diag-entity strong{font-size:13px}.diag-entity span{display:block;margin-top:3px;color:var(--muted);font-size:12px;overflow-wrap:anywhere}.diag-state{text-align:right}.diag-state button{width:34px;height:34px;border:0;background:transparent;color:var(--accent)}
@@ -853,6 +865,16 @@ class StarLineAppPanel extends HTMLElement {
       <p class="fuel-latest"></p>
       <p class="fuel-pending" hidden></p>
       <p class="fuel-message" role="status" aria-live="polite"></p>
+      <details class="fuel-receipt" hidden>
+        <summary>Добавить полный бак по чеку</summary>
+        <form class="fuel-form" data-fuel-receipt data-phase="preview_receipt">
+          <label>Дата по чеку<input name="receipt_date" type="date" required></label>
+          <label>Время по чеку (МСК)<input name="receipt_time" type="time" required></label>
+          <label>Литры по чеку<input name="litres" type="number" inputmode="decimal" min="0.01" step="any" max="200" required></label>
+          <p class="fuel-receipt-preview" role="status" hidden></p>
+          <div class="fuel-form-actions"><button type="submit">Найти показания</button></div>
+        </form>
+      </details>
       <button type="button" data-fuel-action="start" hidden>Зафиксировать показание до заправки</button>
       <form class="fuel-form" data-fuel-finish hidden>
         <fieldset>
@@ -1021,6 +1043,9 @@ class StarLineAppPanel extends HTMLElement {
     const form = this.$("[data-fuel-finish]", pane);
     const editable = this._bootstrap?.panel?.fuel_calibration_can_edit === true;
     const busy = this._fuelSaving.has(id) || this._loading;
+    const receipt = this.$(".fuel-receipt", pane);
+    receipt.hidden = !editable;
+    this.$("button[type=submit]", receipt).disabled = busy || this._hass?.connected === false;
     start.hidden = !editable || Boolean(pending);
     start.disabled = busy || this._hass?.connected === false || fuel.raw === "Нет данных" || fuel.unit !== "%";
     form.hidden = !editable || !pending;
@@ -1047,8 +1072,11 @@ class StarLineAppPanel extends HTMLElement {
         : `Для оценки нужно 3 полных заправки · записано: ${count}`;
     this._setText(pane, ".fuel-model", description);
     const last = model?.samples?.at(-1);
+    const lastTime = last?.receipt_at
+      ? `${MOSCOW_RECEIPT_TIME.format(Date.parse(last.receipt_at))} МСК`
+      : this._formatReport(Date.parse(last?.after.reported_at));
     this._setText(pane, ".fuel-latest", last
-      ? `Последняя запись: ${last.before.value}% → ${last.after.value}% · ${last.litres} л · ${this._formatReport(Date.parse(last.after.reported_at))}`
+      ? `Последняя запись: ${last.before.value}% → ${last.after.value}% · ${last.litres} л · ${lastTime}`
       : "");
     this.$(".fuel-pending", pane).hidden = !pending;
     const pendingLabel = markedFull
@@ -1062,6 +1090,16 @@ class StarLineAppPanel extends HTMLElement {
     this._setText(pane, ".fuel-message", message);
   }
 
+  _showReceiptPreview(form, sample = null) {
+    form.dataset.phase = sample ? "record_receipt" : "preview_receipt";
+    form.dataset.afterAt = sample?.after.reported_at ?? "";
+    this.$(".fuel-receipt-preview", form).hidden = !sample;
+    this._setText(form, ".fuel-receipt-preview", sample
+      ? `До: ${sample.before.value}% · ${this._formatReport(Date.parse(sample.before.reported_at))}. После: ${sample.after.value}% · ${this._formatReport(Date.parse(sample.after.reported_at))}.`
+      : "");
+    this._setText(form, "button[type=submit]", sample ? "Сохранить заправку" : "Найти показания");
+  }
+
   async _saveFuel(action, pane, form = null) {
     const id = pane?.dataset.vehicle;
     const vehicle = this._orderedVehicles().find((item) => String(item.device_id) === id);
@@ -1069,24 +1107,44 @@ class StarLineAppPanel extends HTMLElement {
         this._loading || this._fuelSaving.has(id)) return;
     const startedAt = vehicle.fuel_calibration?.pending?.started_at;
     const message = { type: "starline_telemetry/panel/fuel_calibration", action, device_id: id };
-    if (action !== "start") message.started_at = startedAt;
+    const receipt = action === "preview_receipt" || action === "record_receipt";
+    if (action !== "start" && !receipt) message.started_at = startedAt;
     if (form) {
       if (!form.reportValidity()) return;
       message.litres = form.elements.litres.valueAsNumber;
-      if (form.elements.capacity.value) message.capacity_l = form.elements.capacity.valueAsNumber;
+      if (receipt) {
+        message.receipt_at = `${form.elements.receipt_date.value}T${form.elements.receipt_time.value}`;
+        if (action === "record_receipt") message.expected_after_at = form.dataset.afterAt;
+      } else if (form.elements.capacity.value) {
+        message.capacity_l = form.elements.capacity.valueAsNumber;
+      }
     }
 
     this._fuelRevision++;
     this._fuelSaving.add(id);
-    this._fuelMessages.set(id, "Сохраняю…");
+    this._fuelMessages.set(id, action === "preview_receipt" ? "Ищу показания…" : "Сохраняю…");
     this._queuePatch();
     let resync = false;
     try {
-      vehicle.fuel_calibration = await this._hass.callWS(message);
+      const result = await this._hass.callWS(message);
+      if (action === "preview_receipt") {
+        const receiptAt = `${form.elements.receipt_date.value}T${form.elements.receipt_time.value}`;
+        if (receiptAt === message.receipt_at && form.elements.litres.valueAsNumber === message.litres) {
+          this._showReceiptPreview(form, result.receipt_preview);
+        }
+        this._fuelMessages.delete(id);
+        return;
+      }
+      vehicle.fuel_calibration = result;
+      if (action === "record_receipt") {
+        form.reset();
+        this._showReceiptPreview(form);
+      }
       this._fuelMessages.set(id, action === "start" ? "Показание до заправки сохранено." :
         action === "mark_full" ? "Полный бак отмечен." :
-          action === "finish" ? "Заправка записана." : "Запись отменена.");
+          action === "cancel" ? "Запись отменена." : "Заправка записана.");
     } catch (error) {
+      if (receipt) this._showReceiptPreview(form);
       resync = ["refuel_in_progress", "refuel_conflict"].includes(error?.code);
       this._fuelMessages.set(id, FUEL_ERRORS[error?.code] || "Не удалось сохранить запись. Повторите после обновления панели.");
     } finally {

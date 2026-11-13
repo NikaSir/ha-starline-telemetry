@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 import math
 from statistics import median
 from typing import TYPE_CHECKING, Literal, NotRequired, TypedDict
+from zoneinfo import ZoneInfo
 
 if TYPE_CHECKING:
     from homeassistant.core import State
@@ -17,6 +18,9 @@ if TYPE_CHECKING:
 FUEL_ROLES = ("fuel", "fuel_percent", "fuel_litres", "fuel_volume")
 MAX_REPORT_AGE = timedelta(minutes=30)
 REFUEL_FINISH_WINDOW = timedelta(minutes=30)
+RECEIPT_BEFORE_WINDOW = timedelta(minutes=5)
+RECEIPT_BASELINE_LOOKBACK = timedelta(days=1)
+MOSCOW_TIME = ZoneInfo("Europe/Moscow")
 MAX_SAMPLES = 20
 MIN_SAMPLES = 3
 MAX_FULL_SPREAD = 5
@@ -60,6 +64,7 @@ class RefuelSample(TypedDict):
     after: FuelReport
     litres: float
     capacity_l: float | None
+    receipt_at: NotRequired[str]
 
 
 class VehicleCalibration(TypedDict):
@@ -78,6 +83,7 @@ class CalibrationView(VehicleCalibration):
     full_value: float | None
     factor: float | None
     status: Literal["collecting", "ready", "inconsistent"]
+    receipt_preview: NotRequired[RefuelSample]
 
 
 def select_fuel_state(
@@ -101,7 +107,9 @@ def _percent_entity(state: State | None) -> str | None:
     return None
 
 
-def _capture_report(state: State | None, now: datetime) -> FuelReport:
+def _capture_report(
+    state: State | None, now: datetime, *, reported_at: datetime | None = None
+) -> FuelReport:
     try:
         value = float(state.state) if state is not None else math.nan
     except (TypeError, ValueError):
@@ -110,7 +118,7 @@ def _capture_report(state: State | None, now: datetime) -> FuelReport:
         raise FuelCalibrationError("fuel_unavailable", "Fuel percentage is unavailable")
     if _percent_entity(state) is None:
         raise FuelCalibrationError("fuel_unit_unsupported", "Fuel source must report percent")
-    reported_at = state_reported_at(state)
+    reported_at = reported_at or state_reported_at(state)
     if not timedelta(0) <= now - reported_at <= MAX_REPORT_AGE:
         raise FuelCalibrationError("fuel_stale", "Wait for a fresh Home Assistant fuel report")
     return {
@@ -121,6 +129,57 @@ def _capture_report(state: State | None, now: datetime) -> FuelReport:
     }
 
 
+def _parse_receipt_at(value: str | None, now: datetime) -> datetime:
+    try:
+        local = datetime.strptime(value or "", "%Y-%m-%dT%H:%M")
+        receipt_at = local.replace(tzinfo=MOSCOW_TIME).astimezone(UTC)
+    except (ValueError, OverflowError) as err:
+        raise FuelCalibrationError("invalid_receipt_at", "Enter the Moscow receipt time") from err
+    if receipt_at > now:
+        raise FuelCalibrationError("invalid_receipt_at", "Receipt time cannot be in the future")
+    return receipt_at
+
+
+def _receipt_reports(
+    states: Sequence[State], entity_id: str, receipt_at: datetime, end: datetime
+) -> tuple[FuelReport, FuelReport]:
+    before: FuelReport | None = None
+    best_pair: tuple[FuelReport, FuelReport] | None = None
+    best_gain = 0.0
+    window_start = receipt_at - RECEIPT_BEFORE_WINDOW
+    for state in sorted(states, key=lambda state: state.last_updated):
+        if state.entity_id != entity_id:
+            continue
+        timestamp = state.last_updated
+        if not receipt_at - RECEIPT_BASELINE_LOOKBACK <= timestamp <= end:
+            continue
+        try:
+            report = _capture_report(state, timestamp, reported_at=timestamp)
+        except FuelCalibrationError:
+            before = None
+            continue
+        if timestamp <= window_start:
+            before = report
+            continue
+        if before is None:
+            if timestamp < receipt_at:
+                before = report
+            continue
+        if state.last_changed != timestamp:
+            continue
+        gain = report["value"] - before["value"]
+        if gain > best_gain:
+            best_pair = before, report
+            best_gain = gain
+        if timestamp < receipt_at and gain <= 0:
+            before = report
+    if best_pair is not None:
+        return best_pair
+    raise FuelCalibrationError(
+        "receipt_history_missing", "No matching fuel readings around the receipt time"
+    )
+
+
 def _volume(value: float | None, code: str, label: str) -> float:
     if (
         isinstance(value, bool)
@@ -129,6 +188,42 @@ def _volume(value: float | None, code: str, label: str) -> float:
     ):
         raise FuelCalibrationError(code, f"Enter a positive {label} in litres")
     return float(value)
+
+
+def _refuel_amount(
+    record: VehicleCalibration, litres: float | None, capacity_l: float | None
+) -> tuple[float, float | None]:
+    filled = _volume(litres, "invalid_litres", "refuel amount")
+    capacity = record["capacity_l"]
+    if capacity_l is not None:
+        capacity = _volume(capacity_l, "invalid_capacity", "tank capacity")
+    if capacity is not None and filled > capacity:
+        raise FuelCalibrationError("invalid_litres", "Refuel amount exceeds tank capacity")
+    return filled, capacity
+
+
+def _same_refuel(first: RefuelSample, second: RefuelSample) -> bool:
+    if first["after"]["entity_id"] != second["after"]["entity_id"]:
+        return False
+    if first["after"] == second["after"]:
+        return True
+    if first.get("receipt_at"):
+        first, second = second, first
+    if first.get("receipt_at") or not second.get("receipt_at"):
+        return False
+    receipt_at = datetime.fromisoformat(second["receipt_at"])
+    first_after = datetime.fromisoformat(first["after"]["reported_at"])
+    return (
+        first["litres"] == second["litres"]
+        and receipt_at - RECEIPT_BEFORE_WINDOW <= first_after <= receipt_at + REFUEL_FINISH_WINDOW
+    )
+
+
+def _append_sample(record: VehicleCalibration, sample: RefuelSample) -> None:
+    if any(_same_refuel(existing, sample) for existing in record["samples"]):
+        raise FuelCalibrationError("receipt_already_saved", "This fuel reading is already recorded")
+    record["samples"] = [*record["samples"], sample][-MAX_SAMPLES:]
+    record["capacity_l"] = sample["capacity_l"]
 
 
 def _has_implausible_gain(sample: RefuelSample, capacity_l: float | None) -> bool:
@@ -161,8 +256,14 @@ def _baseline_is_consistent(
     return failed_checks < 2
 
 
-def _view(record: VehicleCalibration, state: State | None) -> CalibrationView:
+def _view(
+    record: VehicleCalibration, state: State | None, fuel_entity_id: str | None = None
+) -> CalibrationView:
     entity_id = _percent_entity(state)
+    if entity_id is None and any(
+        sample["after"]["entity_id"] == fuel_entity_id for sample in record["samples"]
+    ):
+        entity_id = fuel_entity_id
     samples = [sample for sample in record["samples"] if sample["after"]["entity_id"] == entity_id]
     capacity_l = record["capacity_l"]
     result: CalibrationView = {
@@ -205,20 +306,26 @@ class FuelCalibration:
     def _record(records: dict[str, VehicleCalibration], device_id: str) -> VehicleCalibration:
         return records.get(device_id, {"pending": None, "samples": [], "capacity_l": None})
 
-    async def async_view(self, device_id: str, state: State | None) -> CalibrationView:
+    async def async_view(
+        self, device_id: str, state: State | None, fuel_entity_id: str | None = None
+    ) -> CalibrationView:
         """Read the persisted pending refuel and active model for one vehicle."""
         async with self._lock:
-            return _view(self._record(await self._load(), device_id), state)
+            return _view(self._record(await self._load(), device_id), state, fuel_entity_id)
 
     async def async_apply(
         self,
         device_id: str,
-        action: Literal["start", "mark_full", "finish", "cancel"],
+        action: Literal["start", "mark_full", "finish", "cancel", "preview_receipt", "record_receipt"],
         read_state: Callable[[], State | None],
         *,
         started_at: str | None = None,
         litres: float | None = None,
         capacity_l: float | None = None,
+        receipt_at: str | None = None,
+        expected_after_at: str | None = None,
+        fuel_entity_id: str | None = None,
+        read_history: Callable[[str, datetime, datetime], Awaitable[Sequence[State]]] | None = None,
         now: datetime | None = None,
     ) -> CalibrationView:
         """Make one complete, guarded transition for a vehicle."""
@@ -228,7 +335,19 @@ class FuelCalibration:
             state = read_state()
             now = now or datetime.now(UTC)
             pending = record["pending"]
-            if action == "start":
+            if action in ("preview_receipt", "record_receipt"):
+                sample = await self._receipt_sample(
+                    record, _percent_entity(state) or fuel_entity_id,
+                    now, receipt_at, litres, capacity_l, read_history
+                )
+                _append_sample(record, sample)
+                if action == "preview_receipt":
+                    view = _view(self._record(records, device_id), state, fuel_entity_id)
+                    view["receipt_preview"] = sample
+                    return view
+                if expected_after_at is not None and sample["after"]["reported_at"] != expected_after_at:
+                    raise FuelCalibrationError("receipt_history_changed", "Fuel readings changed")
+            elif action == "start":
                 if pending is not None:
                     raise FuelCalibrationError("refuel_in_progress", "A refuel is already pending")
                 record["pending"] = {
@@ -251,7 +370,38 @@ class FuelCalibration:
             # HA Store can log a failed disk write without raising an exception.
             if await self._load() != updated:
                 raise OSError("Unable to verify the fuel calibration write")
-            return _view(record, state)
+            return _view(record, state, fuel_entity_id)
+
+    @staticmethod
+    async def _receipt_sample(
+        record: VehicleCalibration,
+        entity_id: str | None,
+        now: datetime,
+        receipt_at: str | None,
+        litres: float | None,
+        capacity_l: float | None,
+        read_history: Callable[[str, datetime, datetime], Awaitable[Sequence[State]]] | None,
+    ) -> RefuelSample:
+        receipt_time = _parse_receipt_at(receipt_at, now)
+        receipt_iso = receipt_time.isoformat()
+        if any(sample.get("receipt_at") == receipt_iso for sample in record["samples"]):
+            raise FuelCalibrationError("receipt_already_saved", "This receipt is already recorded")
+        if entity_id is None or read_history is None:
+            raise FuelCalibrationError("receipt_history_missing", "Fuel history is unavailable")
+        filled, capacity = _refuel_amount(record, litres, capacity_l)
+        end = min(now, receipt_time + REFUEL_FINISH_WINDOW)
+        history = await read_history(entity_id, receipt_time - RECEIPT_BASELINE_LOOKBACK, end)
+        before, after = _receipt_reports(history, entity_id, receipt_time, end)
+        sample: RefuelSample = {
+            "before": before,
+            "after": after,
+            "litres": filled,
+            "capacity_l": capacity,
+            "receipt_at": receipt_iso,
+        }
+        if _has_implausible_gain(sample, capacity):
+            raise FuelCalibrationError("receipt_history_missing", "Fuel increase is too small")
+        return sample
 
     @staticmethod
     def _mark_full(
@@ -263,12 +413,7 @@ class FuelCalibration:
     ) -> PendingRefuel:
         if "full_at" in pending:
             raise FuelCalibrationError("refuel_conflict", "The refuel is already marked full")
-        filled = _volume(litres, "invalid_litres", "refuel amount")
-        capacity = record["capacity_l"]
-        if capacity_l is not None:
-            capacity = _volume(capacity_l, "invalid_capacity", "tank capacity")
-        if capacity is not None and filled > capacity:
-            raise FuelCalibrationError("invalid_litres", "Refuel amount exceeds tank capacity")
+        filled, capacity = _refuel_amount(record, litres, capacity_l)
         return {
             **pending,
             "full_at": now.astimezone(UTC).isoformat(),
@@ -313,5 +458,4 @@ class FuelCalibration:
             "litres": pending["litres"],
             "capacity_l": capacity,
         }
-        record["samples"] = [*record["samples"], sample][-MAX_SAMPLES:]
-        record["capacity_l"] = capacity
+        _append_sample(record, sample)

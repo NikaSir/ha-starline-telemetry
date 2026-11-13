@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from functools import partial
 import logging
 from pathlib import Path
 import re
@@ -16,6 +17,8 @@ from homeassistant.auth.models import User
 from homeassistant.auth.permissions.const import POLICY_READ
 from homeassistant.components import frontend, panel_custom, websocket_api
 from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.recorder import get_instance
+from homeassistant.components.recorder.history import get_significant_states
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Context, HomeAssistant, State, callback
 from homeassistant.exceptions import HomeAssistantError
@@ -45,6 +48,7 @@ from .const import (
 )
 from .data_quality import normalize_binary_value
 from .fuel_calibration import (
+    FUEL_ROLES,
     FuelCalibration,
     FuelCalibrationError,
     select_fuel_state,
@@ -134,6 +138,33 @@ def _fuel_state(hass: HomeAssistant, vehicle: dict[str, Any]) -> State | None:
     return select_fuel_state(vehicle["entities"], hass.states.get)
 
 
+def _fuel_entity_id(vehicle: dict[str, Any], state: State | None) -> str | None:
+    if state is not None:
+        return state.entity_id
+    return next((vehicle["entities"][role] for role in FUEL_ROLES if role in vehicle["entities"]), None)
+
+
+async def _async_fuel_history(
+    hass: HomeAssistant, entity_id: str, start: datetime, end: datetime
+) -> list[State]:
+    try:
+        recorder = get_instance(hass)
+    except KeyError as err:
+        raise FuelCalibrationError("receipt_history_missing", "Recorder is unavailable") from err
+    history = await recorder.async_add_executor_job(
+        partial(
+            get_significant_states,
+            hass,
+            start - timedelta(microseconds=1),
+            end + timedelta(microseconds=1),
+            entity_ids=[entity_id],
+            include_start_time_state=False,
+            significant_changes_only=False,
+        )
+    )
+    return history.get(entity_id, [])
+
+
 async def _async_attach_fuel_calibration(
     hass: HomeAssistant, vehicle: dict[str, Any], user: User
 ) -> None:
@@ -143,7 +174,9 @@ async def _async_attach_fuel_calibration(
     ):
         return
     try:
-        view = await _panel_fuel_calibration(hass).async_view(vehicle["device_id"], state)
+        view = await _panel_fuel_calibration(hass).async_view(
+            vehicle["device_id"], state, _fuel_entity_id(vehicle, state)
+        )
     except (HomeAssistantError, OSError):
         _LOGGER.exception("Unable to load StarLine fuel calibration")
         return
@@ -511,8 +544,10 @@ async def websocket_panel_report_times(
     {
         vol.Required("type"): f"{DOMAIN}/panel/fuel_calibration",
         vol.Required("device_id"): vol.All(str, vol.Match(r"^[0-9]+$")),
-        vol.Required("action"): vol.In(("start", "mark_full", "finish", "cancel")),
+        vol.Required("action"): vol.In(("start", "mark_full", "finish", "cancel", "preview_receipt", "record_receipt")),
         vol.Optional("started_at"): vol.All(str, vol.Length(max=64)),
+        vol.Optional("receipt_at"): vol.All(str, vol.Length(max=16)),
+        vol.Optional("expected_after_at"): vol.All(str, vol.Length(max=64)),
         vol.Optional("litres"): vol.Any(int, float),
         vol.Optional("capacity_l"): vol.Any(int, float),
     }
@@ -533,14 +568,25 @@ async def websocket_panel_fuel_calibration(
     if vehicle is None:
         connection.send_error(msg["id"], "not_found", "StarLine vehicle was not found")
         return
+    if msg["action"] == "record_receipt" and not msg.get("expected_after_at"):
+        connection.send_error(msg["id"], "receipt_history_changed", "Preview the fuel readings")
+        return
+
+    def read_state() -> State | None:
+        return _fuel_state(hass, vehicle)
+
     try:
         view = await _panel_fuel_calibration(hass).async_apply(
             device_id,
             msg["action"],
-            lambda: _fuel_state(hass, vehicle),
+            read_state,
             started_at=msg.get("started_at"),
             litres=msg.get("litres"),
             capacity_l=msg.get("capacity_l"),
+            receipt_at=msg.get("receipt_at"),
+            expected_after_at=msg.get("expected_after_at"),
+            fuel_entity_id=_fuel_entity_id(vehicle, read_state()),
+            read_history=partial(_async_fuel_history, hass),
         )
     except FuelCalibrationError as err:
         connection.send_error(msg["id"], err.code, str(err))
