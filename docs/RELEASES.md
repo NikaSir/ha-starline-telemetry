@@ -3,7 +3,7 @@
 ## Current repository state
 
 - `main` is the canonical source branch, and accepted changes reach it through reviewed pull requests after required checks pass.
-- This branch targets [`0.7.0-beta002`](../custom_components/starline_telemetry/manifest.json). The integration, panel title, panel manifest and frontend cache key use the complete version. The NikaS checker requires the numeric base `0.7.0` in `.nikas-ui-standard.json`.
+- This branch targets [`0.7.0-beta003`](../custom_components/starline_telemetry/manifest.json). The integration, panel title, panel manifest and frontend cache key use the complete version. The NikaS checker requires the numeric base `0.7.0` in `.nikas-ui-standard.json`.
 - At the 2026-09-14 audit baseline, this repository had no Git tags or GitHub Releases. Existing documentation describes a commit-based custom-HACS channel from `main`.
 - End-to-end acceptance that HACS exposes and installs the current `main` state was not performed by that audit. A merged commit is accepted source, not confirmed user delivery, until verification succeeds in the target Home Assistant installation.
 

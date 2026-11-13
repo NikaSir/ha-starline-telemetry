@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: "0.7.0-beta002"
+version: "0.7.0-beta003"
 ui_standard: 2.2
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
@@ -135,6 +135,14 @@ fuel_calibration:
   mark_full: confirm_refuel_ended_with_receipt
   finish: require_increased_fuel_with_state_change_after_full_mark
   finish_window_minutes: 30
+  record_receipt:
+    inputs: [receipt_date, receipt_time, receipt_litres]
+    timezone: Europe/Moscow
+    source: home_assistant_recorder
+    baseline_lookback_hours: 24
+    before_window_minutes: 5
+    after_window_minutes: 30
+    missing_readings: do_not_create_calibration_sample
   panel_sync_seconds: 60
   panel_sync_transport: local_home_assistant_websocket
   inputs: [receipt_litres, optional_confirmed_capacity_litres]

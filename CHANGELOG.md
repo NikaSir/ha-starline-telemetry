@@ -1,8 +1,12 @@
 # Changelog
 
-Current branch version is [`0.7.0-beta002`](custom_components/starline_telemetry/manifest.json).
+Current branch version is [`0.7.0-beta003`](custom_components/starline_telemetry/manifest.json).
 
 Existing version-specific notes remain under [`docs/`](docs/) and earlier project history remains in Git history; neither is reconstructed here.
+
+## 0.7.0-beta003
+
+- Add retrospective full-tank calibration by receipt date, Moscow time and litres. Match fuel readings in Home Assistant Recorder and keep the receipt timestamp in the calibration journal.
 
 ## 0.7.0-beta002
 
