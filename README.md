@@ -44,7 +44,7 @@ In core-bridge mode, the request reuses the active core StarLine SLNet session i
 
 ## Current baseline
 
-This branch targets integration and panel version `0.7.0-beta004`.
+This branch targets integration and panel version `0.7.0-beta005`.
 
 Platforms:
 

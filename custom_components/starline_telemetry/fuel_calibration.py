@@ -6,6 +6,8 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
+from hashlib import sha256
+import json
 import math
 from statistics import median
 from typing import TYPE_CHECKING, Literal, NotRequired, TypedDict
@@ -20,7 +22,7 @@ MAX_REPORT_AGE = timedelta(minutes=30)
 REFUEL_FINISH_WINDOW = timedelta(minutes=30)
 RECEIPT_BEFORE_WINDOW = timedelta(minutes=5)
 RECEIPT_PREFERRED_WINDOW = timedelta(hours=1)
-RECEIPT_AFTER_WINDOW = timedelta(hours=7)
+RECEIPT_AFTER_WINDOW = timedelta(days=1)
 RECEIPT_BASELINE_LOOKBACK = timedelta(days=1)
 MOSCOW_TIME = ZoneInfo("Europe/Moscow")
 MAX_SAMPLES = 20
@@ -47,6 +49,7 @@ class FuelReport(TypedDict):
     unit: Literal["%"]
     entity_id: str
     reported_at: str
+    period_start: NotRequired[str]
 
 
 class PendingRefuel(TypedDict):
@@ -86,6 +89,7 @@ class CalibrationView(VehicleCalibration):
     factor: float | None
     status: Literal["collecting", "ready", "inconsistent"]
     receipt_preview: NotRequired[RefuelSample]
+    receipt_match: NotRequired[str]
 
 
 def select_fuel_state(
@@ -192,6 +196,48 @@ def _receipt_reports(
     )
 
 
+def _hourly_receipt_reports(
+    rows: Sequence[Mapping[str, object]],
+    entity_id: str,
+    start: datetime,
+    receipt_at: datetime,
+    end: datetime,
+    min_gain: float,
+) -> tuple[FuelReport, FuelReport]:
+    reports: list[FuelReport] = []
+    for row in rows:
+        value, period_start, period_end = row.get("state"), row.get("start"), row.get("end")
+        if not isinstance(value, (int, float)) or not 0 <= value <= 100:
+            continue
+        if not isinstance(period_start, (int, float)) or not isinstance(period_end, (int, float)):
+            continue
+        if not start.timestamp() <= period_start < period_end <= end.timestamp():
+            continue
+        if period_end - period_start != 3600:
+            continue
+        reports.append({
+            "entity_id": entity_id, "unit": "%", "value": value,
+            "period_start": datetime.fromtimestamp(period_start, UTC).isoformat(),
+            "reported_at": datetime.fromtimestamp(period_end, UTC).isoformat(),
+        })
+
+    reports.sort(key=lambda report: report["reported_at"])
+    for before, after in zip(reports, reports[1:]):
+        # The state is the last value in a bucket. Adjacent buckets bound
+        # the change without claiming an exact Recorder timestamp.
+        if before["reported_at"] != after["period_start"]:
+            continue
+        if not receipt_at < datetime.fromisoformat(after["reported_at"]):
+            continue
+        if after["value"] - before["value"] > min_gain:
+            return before, after
+    raise FuelCalibrationError("receipt_history_missing", "No matching hourly fuel readings")
+
+
+def _receipt_match(sample: RefuelSample) -> str:
+    return sha256(json.dumps(sample, sort_keys=True).encode()).hexdigest()
+
+
 def _volume(value: float | None, code: str, label: str) -> float:
     if (
         isinstance(value, bool)
@@ -219,6 +265,13 @@ def _same_refuel(first: RefuelSample, second: RefuelSample) -> bool:
         return False
     if first["after"] == second["after"]:
         return True
+    for exact, hourly in ((first["after"], second["after"]), (second["after"], first["after"])):
+        if (
+            "period_start" in hourly and "period_start" not in exact
+            and hourly["period_start"] <= exact["reported_at"] < hourly["reported_at"]
+            and exact["value"] == hourly["value"]
+        ):
+            return True
     if first.get("receipt_at"):
         first, second = second, first
     if first.get("receipt_at") or not second.get("receipt_at"):
@@ -342,8 +395,12 @@ class FuelCalibration:
         capacity_l: float | None = None,
         receipt_at: str | None = None,
         expected_after_at: str | None = None,
+        expected_match: str | None = None,
         fuel_entity_id: str | None = None,
         read_history: Callable[[str, datetime, datetime], Awaitable[Sequence[State]]] | None = None,
+        read_hourly: Callable[
+            [str, datetime, datetime], Awaitable[Sequence[Mapping[str, object]]]
+        ] | None = None,
         now: datetime | None = None,
     ) -> CalibrationView:
         """Make one complete, guarded transition for a vehicle."""
@@ -356,14 +413,21 @@ class FuelCalibration:
             if action in ("preview_receipt", "record_receipt"):
                 sample = await self._receipt_sample(
                     record, _percent_entity(state) or fuel_entity_id,
-                    now, receipt_at, litres, capacity_l, read_history
+                    now, receipt_at, litres, capacity_l, read_history, read_hourly,
                 )
                 _append_sample(record, sample)
                 if action == "preview_receipt":
                     view = _view(self._record(records, device_id), state, fuel_entity_id)
                     view["receipt_preview"] = sample
+                    view["receipt_match"] = _receipt_match(sample)
                     return view
-                if expected_after_at is not None and sample["after"]["reported_at"] != expected_after_at:
+                if (
+                    (expected_match is not None and expected_match != _receipt_match(sample))
+                    or (
+                        expected_after_at is not None
+                        and sample["after"]["reported_at"] != expected_after_at
+                    )
+                ):
                     raise FuelCalibrationError("receipt_history_changed", "Fuel readings changed")
             elif action == "start":
                 if pending is not None:
@@ -399,6 +463,9 @@ class FuelCalibration:
         litres: float | None,
         capacity_l: float | None,
         read_history: Callable[[str, datetime, datetime], Awaitable[Sequence[State]]] | None,
+        read_hourly: Callable[
+            [str, datetime, datetime], Awaitable[Sequence[Mapping[str, object]]]
+        ] | None,
     ) -> RefuelSample:
         receipt_time = _parse_receipt_at(receipt_at, now)
         receipt_iso = receipt_time.isoformat()
@@ -407,11 +474,21 @@ class FuelCalibration:
         if entity_id is None or read_history is None:
             raise FuelCalibrationError("receipt_history_missing", "Fuel history is unavailable")
         filled, capacity = _refuel_amount(record, litres, capacity_l)
+        start = receipt_time - RECEIPT_BASELINE_LOOKBACK
         end = min(now, receipt_time + RECEIPT_AFTER_WINDOW)
-        history = await read_history(entity_id, receipt_time - RECEIPT_BASELINE_LOOKBACK, end)
-        before, after = _receipt_reports(
-            history, entity_id, receipt_time, end, _minimum_receipt_gain(filled, capacity)
-        )
+        for sample in record["samples"]:
+            if (saved_at := sample.get("receipt_at")) and saved_at > receipt_iso:
+                next_window = datetime.fromisoformat(saved_at) - RECEIPT_BEFORE_WINDOW
+                end = min(end, next_window - timedelta(microseconds=1))
+        if end < receipt_time - RECEIPT_BEFORE_WINDOW:
+            raise FuelCalibrationError("receipt_history_missing", "The next receipt bounds the search")
+        history = await read_history(entity_id, start, end)
+        min_gain = _minimum_receipt_gain(filled, capacity)
+        if history or read_hourly is None:
+            before, after = _receipt_reports(history, entity_id, receipt_time, end, min_gain)
+        else:
+            hourly = await read_hourly(entity_id, start, end)
+            before, after = _hourly_receipt_reports(hourly, entity_id, start, receipt_time, end, min_gain)
         return {
             "before": before,
             "after": after,

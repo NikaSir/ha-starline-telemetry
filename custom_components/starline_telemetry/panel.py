@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from functools import partial
 import logging
@@ -19,6 +20,7 @@ from homeassistant.components import frontend, panel_custom, websocket_api
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.history import get_significant_states
+from homeassistant.components.recorder.statistics import get_metadata, statistics_during_period
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Context, HomeAssistant, State, callback
 from homeassistant.exceptions import HomeAssistantError
@@ -163,6 +165,25 @@ async def _async_fuel_history(
         )
     )
     return history.get(entity_id, [])
+
+
+def _read_hourly_fuel(
+    hass: HomeAssistant, entity_id: str, start: datetime, end: datetime
+) -> Sequence[Mapping[str, object]]:
+    metadata = get_metadata(hass, statistic_ids={entity_id}).get(entity_id)
+    if metadata is None or metadata[1]["unit_of_measurement"] != "%":
+        return []
+    return statistics_during_period(
+        hass, start, end, {entity_id}, "hour", None, {"state"}
+    ).get(entity_id, [])
+
+
+async def _async_hourly_fuel(
+    hass: HomeAssistant, entity_id: str, start: datetime, end: datetime
+) -> Sequence[Mapping[str, object]]:
+    return await get_instance(hass).async_add_executor_job(
+        _read_hourly_fuel, hass, entity_id, start, end
+    )
 
 
 async def _async_attach_fuel_calibration(
@@ -547,7 +568,7 @@ async def websocket_panel_report_times(
         vol.Required("action"): vol.In(("start", "mark_full", "finish", "cancel", "preview_receipt", "record_receipt")),
         vol.Optional("started_at"): vol.All(str, vol.Length(max=64)),
         vol.Optional("receipt_at"): vol.All(str, vol.Length(max=16)),
-        vol.Optional("expected_after_at"): vol.All(str, vol.Length(max=64)),
+        vol.Optional("expected_match"): vol.All(str, vol.Match(r"^[a-f0-9]{64}$")),
         vol.Optional("litres"): vol.Any(int, float),
         vol.Optional("capacity_l"): vol.Any(int, float),
     }
@@ -568,7 +589,7 @@ async def websocket_panel_fuel_calibration(
     if vehicle is None:
         connection.send_error(msg["id"], "not_found", "StarLine vehicle was not found")
         return
-    if msg["action"] == "record_receipt" and not msg.get("expected_after_at"):
+    if msg["action"] == "record_receipt" and not msg.get("expected_match"):
         connection.send_error(msg["id"], "receipt_history_changed", "Preview the fuel readings")
         return
 
@@ -584,9 +605,10 @@ async def websocket_panel_fuel_calibration(
             litres=msg.get("litres"),
             capacity_l=msg.get("capacity_l"),
             receipt_at=msg.get("receipt_at"),
-            expected_after_at=msg.get("expected_after_at"),
+            expected_match=msg.get("expected_match"),
             fuel_entity_id=_fuel_entity_id(vehicle, read_state()),
             read_history=partial(_async_fuel_history, hass),
+            read_hourly=partial(_async_hourly_fuel, hass),
         )
     except FuelCalibrationError as err:
         connection.send_error(msg["id"], err.code, str(err))
