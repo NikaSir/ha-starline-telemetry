@@ -1,8 +1,12 @@
 # Changelog
 
-Current branch version is [`0.7.0-beta004`](custom_components/starline_telemetry/manifest.json).
+Current branch version is [`0.7.0-beta005`](custom_components/starline_telemetry/manifest.json).
 
 Existing version-specific notes remain under [`docs/`](docs/) and earlier project history remains in Git history; neither is reconstructed here.
+
+## 0.7.0-beta005
+
+- Search up to 24 hours after a receipt, stopping before the next saved receipt. Use labeled hourly Recorder intervals when raw states are unavailable.
 
 ## 0.7.0-beta004
 

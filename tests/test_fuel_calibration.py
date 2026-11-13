@@ -110,7 +110,13 @@ class FuelCalibrationTest(unittest.IsolatedAsyncioTestCase):
                 reading(89, 1), reading(83, 25),
             ]
 
-        fields = {"receipt_at": "2026-11-13T23:49", "litres": 25.58, "read_history": history}
+        async def hourly(*_):
+            self.fail("A raw Recorder match must take priority over hourly statistics")
+
+        fields = {
+            "receipt_at": "2026-11-13T23:49", "litres": 25.58,
+            "read_history": history, "read_hourly": hourly,
+        }
         preview = await self._apply("preview_receipt", **fields)
         self.assertEqual(89, preview["receipt_preview"]["after"]["value"])
         self.assertIsNone(self.storage.data)
@@ -163,15 +169,15 @@ class FuelCalibrationTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(1, len(saved["samples"]))
 
     async def test_receipt_search_prioritizes_the_first_hour_and_handles_delayed_recovery(self):
-        self.now = datetime(2026, 11, 13, 22, 0, tzinfo=UTC)
+        self.now = datetime(2026, 11, 14, 16, 0, tzinfo=UTC)
         receipt = datetime(2026, 11, 13, 14, 0, tzinfo=UTC)
         self._report(57, entity_id=SECOND_FUEL_ID)
         cases = (
             ([(45, 57), (240, 90)], 57),
             ([(20, 25), (40, "unavailable"), (240, 57), (350, 90)], 57),
             ([(-2, "unavailable"), (240, 57)], 57),
-            ([(40, "unavailable"), (420, 57)], 57),
-            ([(40, "unavailable"), (421, 57)], None),
+            ([(40, "unavailable"), (1440, 57)], 57),
+            ([(40, "unavailable"), (1441, 57)], None),
         )
         for changes, expected in cases:
             with self.subTest(changes=changes):
@@ -201,14 +207,76 @@ class FuelCalibrationTest(unittest.IsolatedAsyncioTestCase):
                     pair = preview["receipt_preview"]
                     self.assertEqual((24, expected), (pair["before"]["value"], pair["after"]["value"]))
                 self.assertIsNone(self.storage.data)
-                if changes == [(40, "unavailable"), (420, 57)]:
-                    self.assertEqual("2026-11-13T21:00:00+00:00", pair["after"]["reported_at"])
+                if changes == [(40, "unavailable"), (1440, 57)]:
+                    self.assertEqual("2026-11-14T14:00:00+00:00", pair["after"]["reported_at"])
                     saved = await self._apply(
                         "record_receipt", expected_after_at=pair["after"]["reported_at"], **fields
                     )
                     self.assertEqual([pair], saved["samples"])
                     self.storage = MemoryStore()
                     self.calibration = self.module.FuelCalibration(self.storage)
+
+    async def test_old_receipts_use_hourly_intervals_for_both_vehicles(self):
+        self.now = datetime(2026, 11, 14, tzinfo=UTC)
+        for device_id, entity_id, receipt, litres, baseline in (
+            ("130", FUEL_ID, "2026-10-24T19:43", 37.88, 18),
+            ("683", SECOND_FUEL_ID, "2026-10-24T20:11", 22.76, 26),
+        ):
+            self._report(57, entity_id=entity_id)
+
+            async def history(*_):
+                return []
+
+            after_value = 57
+
+            async def hourly(requested, start, end):
+                self.assertEqual(entity_id, requested)
+                first = datetime(2026, 10, 24, 20, tzinfo=UTC)
+                return [
+                    {"start": first.timestamp(), "end": (first + timedelta(hours=1)).timestamp(),
+                     "state": baseline},
+                    {"start": (first + timedelta(hours=1)).timestamp(),
+                     "end": (first + timedelta(hours=2)).timestamp(), "state": after_value},
+                ]
+
+            fields = dict(device_id=device_id, receipt_at=receipt, litres=litres,
+                          read_history=history, read_hourly=hourly)
+            preview = await self._apply("preview_receipt", **fields)
+            pair = preview["receipt_preview"]
+            self.assertEqual((baseline, 57), (pair["before"]["value"], pair["after"]["value"]))
+            self.assertEqual("2026-10-24T21:00:00+00:00", pair["after"]["period_start"])
+            self.assertEqual("2026-10-24T22:00:00+00:00", pair["after"]["reported_at"])
+            after_value = 58
+            with self.assertRaises(self.module.FuelCalibrationError) as caught:
+                await self._apply("record_receipt", expected_match=preview["receipt_match"], **fields)
+            self.assertEqual("receipt_history_changed", caught.exception.code)
+            after_value = 57
+            saved = await self._apply(
+                "record_receipt", expected_match=preview["receipt_match"], **fields
+            )
+            self.assertEqual([pair], saved["samples"])
+
+    async def test_next_saved_receipt_bounds_the_search_for_an_older_refill(self):
+        self.now = datetime(2026, 11, 14, 16, tzinfo=UTC)
+        self._report(57)
+        first = datetime(2026, 11, 13, 14, tzinfo=UTC)
+        next_receipt = first + timedelta(hours=21)
+        later = next_receipt + timedelta(minutes=25)
+        readings = []
+        for value, at in [(24, first - timedelta(hours=1)), (24, next_receipt - timedelta(hours=1)),
+                          (57, later)]:
+            readings.append(SimpleNamespace(entity_id=FUEL_ID, state=str(value),
+                attributes={"unit_of_measurement": "%"}, last_updated=at, last_changed=at))
+
+        async def history(_, start, end):
+            return [r for r in readings if start <= r.last_updated <= end]
+
+        await self._apply("record_receipt", receipt_at="2026-11-14T14:00",
+                          litres=25.55, read_history=history)
+        with self.assertRaises(self.module.FuelCalibrationError) as caught:
+            await self._apply("preview_receipt", receipt_at="2026-11-13T17:00",
+                              litres=25.55, read_history=history)
+        self.assertEqual("receipt_history_missing", caught.exception.code)
 
     async def test_receipt_accepts_an_increase_just_before_the_receipt_without_live_data(self):
         self.now = datetime(2026, 11, 13, 23, 0, tzinfo=UTC)

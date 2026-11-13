@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: "0.7.0-beta004"
+version: "0.7.0-beta005"
 ui_standard: 2.2
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
@@ -142,7 +142,9 @@ fuel_calibration:
     baseline_lookback_hours: 24
     before_window_minutes: 5
     preferred_after_window_minutes: 60
-    after_window_minutes: 420
+    after_window_minutes: 1440
+    stop_before_next_saved_receipt: true
+    fallback: adjacent_hourly_recorder_states_when_raw_history_is_empty
     missing_readings: do_not_create_calibration_sample
   panel_sync_seconds: 60
   panel_sync_transport: local_home_assistant_websocket
