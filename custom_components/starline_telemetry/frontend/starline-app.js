@@ -706,16 +706,26 @@ class StarLineAppPanel extends HTMLElement {
 
     let gauge = null;
     if (metric.value !== "Нет данных" && metric.value !== "Устарело") {
-      const powerMetrics = [power.primary, power.secondary];
-      const parked = powerMetrics.some(({ label, tone }) => label === "Зажигание" && tone === "ok") &&
-        !powerMetrics.some(({ label, tone }) => label === "Двигатель" && tone === "active");
       if (unit === "%") gauge = { type: "percent", level: Math.round(numeric) };
-      if (unit === "V" && parked && numeric < BATTERY_CHARGING_THRESHOLD_V) {
+      if (unit === "V" && numeric < BATTERY_CHARGING_THRESHOLD_V && this._batteryReportedAfterShutdown(vehicle, power, entity)) {
         const position = (numeric - BATTERY_SCALE_MIN_V) / (BATTERY_SCALE_MAX_V - BATTERY_SCALE_MIN_V);
         gauge = { type: "voltage", level: Math.round(clamp(position, 0, 1) * 100) };
       }
     }
     return { ...metric, gauge };
+  }
+
+  _batteryReportedAfterShutdown(vehicle, power, battery) {
+    const { engine, ignition } = power;
+    const hasEngine = Boolean(vehicle.entities?.engine_running) ||
+      (vehicle.sources?.ign === "core_starline" && domainOf(vehicle.entities?.ign) === "switch");
+    if (ignition.tone !== "ok" || (hasEngine && engine.tone !== "ok")) return false;
+
+    const batteryReported = this._reportedAt(battery.state, battery.entityId);
+    return [ignition, engine].every(({ entityId }) => {
+      const changedAt = Date.parse(this._hass.states?.[entityId]?.last_changed || "");
+      return !Number.isFinite(changedAt) || batteryReported >= changedAt;
+    });
   }
 
   _engineMetric(vehicle) {
@@ -736,7 +746,7 @@ class StarLineAppPanel extends HTMLElement {
     const engine = this._engineMetric(vehicle);
     const ignition = this._ignitionMetric(vehicle);
     const useIgnition = ["muted", "stale"].includes(engine.tone) && ["ok", "warn"].includes(ignition.tone);
-    return useIgnition ? { primary: ignition, secondary: engine } : { primary: engine, secondary: ignition };
+    return { engine, ignition, primary: useIgnition ? ignition : engine, secondary: useIgnition ? engine : ignition };
   }
 
   _perimeter(vehicle) {
