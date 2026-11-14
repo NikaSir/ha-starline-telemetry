@@ -1,4 +1,4 @@
-const UI_VERSION = "0.7.0-beta005";
+const UI_VERSION = "0.7.0-beta006";
 const ASSET_BASE = "/starline_telemetry_static/assets";
 const EVENT_WINDOW_HOURS = 24;
 const TRIP_WINDOW_HOURS = 72;
@@ -13,6 +13,9 @@ const SOURCE_ROUTE_TTL_MS = 30_000;
 const SECURITY_BOOTSTRAP_MAX_AGE_MS = 60_000;
 const FUEL_KEYS = ["fuel", "fuel_percent", "fuel_litres", "fuel_volume"];
 const HA_REPORT_MAX_AGE_MS = 30 * 60_000;
+const BATTERY_SCALE_MIN_V = 11.8;
+const BATTERY_SCALE_MAX_V = 12.8;
+const BATTERY_CHARGING_THRESHOLD_V = 13.0;
 const MOSCOW_TIME = new Intl.DateTimeFormat("ru-RU", {
   timeZone: "Europe/Moscow", day: "2-digit", month: "2-digit",
   hour: "2-digit", minute: "2-digit",
@@ -509,6 +512,10 @@ class StarLineAppPanel extends HTMLElement {
       .metric{min-width:0;min-height:49px;display:grid;grid-template-rows:auto auto;align-content:center;justify-items:stretch;gap:3px;padding:4px;border:1px solid var(--border);border-radius:11px;background:color-mix(in srgb,var(--accent) 4%,var(--surface));color:var(--primary-text-color);text-align:center}
       .metric>span{display:block;color:var(--primary-text-color);font-size:12px;line-height:1.15;font-weight:750;text-align:center;overflow-wrap:anywhere}
       .metric-reading{min-width:0;display:flex;align-items:center;justify-content:center;gap:5px}.metric ha-icon{flex:0 0 auto;color:var(--blue);--mdc-icon-size:19px}.metric strong{display:block;margin:0;font-size:16px;line-height:1.1;font-weight:820;overflow-wrap:anywhere}
+      .metric-gauge{height:5px;margin:0 12px;border-radius:3px;background:var(--border);position:relative}
+      .metric-gauge[data-type="percent"]::after{content:"";position:absolute;inset:0 auto 0 0;width:calc(var(--level) * 1%);border-radius:inherit;background:hsl(calc(var(--level) * 1.15deg) 62% 55%)}
+      .metric-gauge[data-type="voltage"]{background:linear-gradient(to right,#e05353 0%,#ee8c42 30%,#dfc657 60%,#58bb70 80%,#58bb70 100%)}
+      .metric-gauge[data-type="voltage"]::after{content:"";position:absolute;top:-1px;left:clamp(2px,calc(var(--level) * 1%),calc(100% - 2px));width:4px;height:7px;transform:translateX(-50%);border-radius:2px;background:#fff;box-shadow:0 0 0 1px #0009}
       .metric.warn ha-icon{color:var(--warn)}.metric.danger ha-icon{color:var(--danger)}.metric.muted strong,.perimeter.muted{color:var(--muted)}
       .perimeter{min-height:26px;margin:5px 0 0;padding:4px 6px;border-radius:8px;background:color-mix(in srgb,var(--secondary-text-color,#686868) 8%,var(--surface));font-size:13px;font-weight:600;line-height:1.25;overflow-wrap:anywhere}
       .perimeter.warn{background:color-mix(in srgb,var(--warn) 17%,var(--surface))}
@@ -673,15 +680,49 @@ class StarLineAppPanel extends HTMLElement {
     const isEstimate = quality === "fresh" && unit === "%" && model?.unit === unit &&
       model?.status === "ready" && model?.entity_id === entity.entityId &&
       Number.isFinite(model.factor) && model.factor > 0;
+    const level = Math.round(isEstimate ? clamp(numeric * model.factor, 0, 100) : numeric);
     return {
       label: isEstimate ? "Топливо · оценка" : quality === "stale" ? "Топливо · устарело" : "Топливо",
       icon: "mdi:gas-station-outline",
       entityId: entity?.entityId || "",
-      value: isEstimate ? `${this._formatNumber(clamp(numeric * model.factor, 0, 100))} %` : quality !== "unavailable" ? raw : "Нет данных",
+      value: isEstimate ? `${this._formatNumber(level)} %` : quality !== "unavailable" ? raw : "Нет данных",
       raw: valid ? raw : "Нет данных",
       timestamp, quality, source, unit,
       tone: quality === "stale" ? "warn" : quality === "unavailable" ? "muted" : "",
+      gauge: quality === "fresh" && unit === "%" ? { type: "percent", level } : null,
     };
+  }
+
+  _batteryMetric(vehicle, power = this._overviewPower(vehicle)) {
+    const entity = this._entity(vehicle, ["battery"]);
+    const unit = entity?.state?.attributes?.unit_of_measurement;
+    const numeric = Number(entity?.state?.state);
+    const metric = this._metricSpec(vehicle, ["battery"], "АКБ", "mdi:car-battery", unit === "%" ? 0 : 1);
+    const valid = Number.isFinite(numeric) && (unit === "%" ? numeric >= 0 && numeric <= 100 : numeric > 0);
+    if (!valid && metric.value !== "Нет данных") return { ...metric, value: "Нет данных", tone: "muted", gauge: null };
+
+    let gauge = null;
+    if (metric.value !== "Нет данных" && metric.value !== "Устарело") {
+      if (unit === "%") gauge = { type: "percent", level: Math.round(numeric) };
+      if (unit === "V" && numeric < BATTERY_CHARGING_THRESHOLD_V && this._batteryReportedAfterShutdown(vehicle, power, entity)) {
+        const position = (numeric - BATTERY_SCALE_MIN_V) / (BATTERY_SCALE_MAX_V - BATTERY_SCALE_MIN_V);
+        gauge = { type: "voltage", level: Math.round(clamp(position, 0, 1) * 100) };
+      }
+    }
+    return { ...metric, gauge };
+  }
+
+  _batteryReportedAfterShutdown(vehicle, power, battery) {
+    const { engine, ignition } = power;
+    const hasEngine = Boolean(vehicle.entities?.engine_running) ||
+      (vehicle.sources?.ign === "core_starline" && domainOf(vehicle.entities?.ign) === "switch");
+    if (ignition.tone !== "ok" || (hasEngine && engine.tone !== "ok")) return false;
+
+    const batteryReported = this._reportedAt(battery.state, battery.entityId);
+    return [ignition, engine].every(({ entityId }) => {
+      const changedAt = Date.parse(this._hass.states?.[entityId]?.last_changed || "");
+      return !Number.isFinite(changedAt) || batteryReported >= changedAt;
+    });
   }
 
   _engineMetric(vehicle) {
@@ -702,7 +743,7 @@ class StarLineAppPanel extends HTMLElement {
     const engine = this._engineMetric(vehicle);
     const ignition = this._ignitionMetric(vehicle);
     const useIgnition = ["muted", "stale"].includes(engine.tone) && ["ok", "warn"].includes(ignition.tone);
-    return useIgnition ? { primary: ignition, secondary: engine } : { primary: engine, secondary: ignition };
+    return { engine, ignition, primary: useIgnition ? ignition : engine, secondary: useIgnition ? engine : ignition };
   }
 
   _perimeter(vehicle) {
@@ -828,8 +869,9 @@ class StarLineAppPanel extends HTMLElement {
     return pane;
   }
 
-  _metricTiles(count) {
-    return Array.from({ length: count }, () => `<button class="metric" type="button"><span></span><div class="metric-reading"><ha-icon></ha-icon><strong></strong></div></button>`).join("");
+  _metricTiles(count, gauges = 0) {
+    const gauge = '<div class="metric-gauge" aria-hidden="true"></div>';
+    return Array.from({ length: count }, (_, index) => `<button class="metric" type="button"><span></span><div class="metric-reading"><ha-icon></ha-icon><strong></strong></div>${index < gauges ? gauge : ""}</button>`).join("");
   }
 
   _mountSummary(pane, vehicle) {
@@ -840,7 +882,7 @@ class StarLineAppPanel extends HTMLElement {
         <div class="identity"><strong></strong><small class="connection-status"></small><small class="connection-time"></small></div>
         ${image}
       </div>
-      <div class="metrics">${this._metricTiles(4)}</div>
+      <div class="metrics">${this._metricTiles(4, 2)}</div>
       <p class="perimeter"></p>
       <details class="summary-details">
         <summary>Подробнее <ha-icon icon="mdi:chevron-down"></ha-icon></summary>
@@ -959,7 +1001,7 @@ class StarLineAppPanel extends HTMLElement {
     const power = this._overviewPower(vehicle);
     const metrics = [
       fuel,
-      this._metricSpec(vehicle, ["battery"], "АКБ", "mdi:car-battery", 1),
+      this._batteryMetric(vehicle, power),
       power.primary,
       { label: "Охрана", value: security.label, icon: security.icon, entityId: "",
         tone: security.key === "alarm" ? "danger" : security.key === "unknown" ? "muted" : "" },
@@ -999,6 +1041,13 @@ class StarLineAppPanel extends HTMLElement {
     this._setIcon(node, "ha-icon", spec.icon);
     this._setText(node, "span", spec.label);
     this._setText(node, "strong", spec.value);
+    const gauge = this.$(".metric-gauge", node);
+    if (gauge) {
+      const type = spec.gauge?.type || "";
+      if (gauge.dataset.type !== type) gauge.dataset.type = type;
+      const level = spec.gauge ? `${spec.gauge.level}` : "";
+      if (gauge.style.getPropertyValue("--level") !== level) gauge.style.setProperty("--level", level);
+    }
   }
 
   _perimeterLabel(items) {
