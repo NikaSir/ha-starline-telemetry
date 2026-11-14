@@ -1,8 +1,12 @@
 # Changelog
 
-Current branch version is [`0.7.0-beta005`](custom_components/starline_telemetry/manifest.json).
+Current branch version is [`0.7.0-beta006`](custom_components/starline_telemetry/manifest.json).
 
 Existing version-specific notes remain under [`docs/`](docs/) and earlier project history remains in Git history; neither is reconstructed here.
+
+## 0.7.0-beta006
+
+- Add colour scales for fuel and battery to both vehicle cards. The fuel fill follows the displayed percentage. The battery uses a voltage marker with ignition off, or a percentage fill when supplied by the sensor. Stale and unavailable readings use a neutral track.
 
 ## 0.7.0-beta005
 

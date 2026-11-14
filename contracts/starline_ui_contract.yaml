@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: "0.7.0-beta005"
+version: "0.7.0-beta006"
 ui_standard: 2.2
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
@@ -107,6 +107,9 @@ summary_screen:
       label_weight: 750
       reading: centered_icon_and_value_same_line
       text_overflow_policy: wrap_without_clipping
+      fuel_scale: fresh_displayed_percentage
+      battery_scale: fresh_reported_percentage_or_voltage_marker_with_ignition_off
+      unavailable_scale: neutral_track
     perimeter: [door, hood, trunk]
     secondary_metrics: expandable_details
     freshness:

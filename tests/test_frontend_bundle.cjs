@@ -93,7 +93,6 @@ assert.match(source, /canvas\{width:100%;height:100%;min-height:100%/);
 assert.match(source, /metric\{[^}]*grid-template-rows:auto auto[^}]*text-align:center/);
 assert.match(source, /metric>span\{[^}]*font-weight:750[^}]*text-align:center/);
 assert.match(source, /metric-reading\{[^}]*display:flex[^}]*align-items:center[^}]*justify-content:center/);
-assert.match(source, /class="metric"[^>]*><span><\/span><div class="metric-reading"><ha-icon><\/ha-icon><strong><\/strong><\/div><\/button>/);
 assert.match(source, /_patchMetric\(node, spec\)[\s\S]*?this\._setIcon\(node, "ha-icon", spec\.icon\)[\s\S]*?this\._setText\(node, "span", spec\.label\)[\s\S]*?this\._setText\(node, "strong", spec\.value\)/);
 assert.doesNotMatch(source, /metric\{[^}]*grid-template-columns:22px/);
 
@@ -132,6 +131,12 @@ assert.ok(registry.has("starline-app-panel"));
 
 const Panel = registry.get("starline-app-panel");
 const runtime = Object.create(Panel.prototype);
+const tiles = runtime._metricTiles(4, 2).split("</button>").filter(Boolean);
+assert.equal(tiles.length, 4);
+tiles.forEach((tile, index) => {
+  assert.match(tile, /<span><\/span><div class="metric-reading"><ha-icon><\/ha-icon><strong><\/strong><\/div>/);
+  assert.equal(tile.includes('class="metric-gauge"'), index < 2);
+});
 runtime._hass = { states: {} };
 assert.equal(runtime._isOn({ state: { state: "unknown" } }), null);
 assert.equal(runtime._isOn({ state: { state: "unexpected" } }), null);
