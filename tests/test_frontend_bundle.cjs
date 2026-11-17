@@ -10,6 +10,7 @@ const source = fs.readFileSync("custom_components/starline_telemetry/frontend/st
 const standard = JSON.parse(fs.readFileSync(".nikas-ui-standard.json", "utf8"));
 const contract = fs.readFileSync("contracts/starline_ui_contract.yaml", "utf8");
 const bundle = fs.readFileSync("custom_components/starline_telemetry/frontend/starline-app.js", "utf8");
+const shell = fs.readFileSync("scripts/vendor/nikas-specialized-shell.js", "utf8");
 const builder = fs.readFileSync("scripts/build_frontend_bundle.py", "utf8");
 
 const version = source.match(/^const UI_VERSION = "([^"]+)";/m)?.[1];
@@ -39,36 +40,36 @@ assert.match(builder, /SOURCE = FRONTEND \/ "starline-panel-source\.js"/);
 assert.doesNotMatch(builder, /starline-app-v0\d+/);
 assert.doesNotMatch(source, /extends\s+customElements\.get/);
 
-assert.match(source, /grid-template-rows:calc\(60px \+ env\(safe-area-inset-top,0px\)\) 52px minmax\(0,1fr\) calc\(64px \+ env\(safe-area-inset-bottom,0px\)\)/);
-assert.match(source, /grid-template-columns:52px minmax\(0,1fr\) 52px/);
-assert.match(source, /\.app-header\{[^}]*height:100%/);
-assert.match(source, /padding:env\(safe-area-inset-top,0px\)/);
-assert.match(source, /width:44px;height:44px/);
-assert.match(source, /--mdc-icon-size:25px/);
-assert.match(source, /title-button strong\{font-size:23px/);
-assert.match(source, /title-button span\{[^}]*font-size:14px/);
-assert.match(source, /UI v\$\{UI_VERSION\}/);
-assert.match(source, /bottom-nav ha-icon\{--mdc-icon-size:26px/);
-assert.match(source, /bottom-nav span\{[^}]*font-size:12px/);
+assert.ok(bundle.includes(shell.trim()), "production must contain the exact pinned shell");
+assert.match(shell, /grid-template-rows:calc\(60px \+ env\(safe-area-inset-top,0px\)\) 52px minmax\(0,1fr\)/);
+assert.match(shell, /grid-template-columns:52px minmax\(0,1fr\) 52px/);
+assert.match(source, /class="app-header nikas-shell__header"/);
+assert.match(shell, /padding:env\(safe-area-inset-top,0px\)/);
+assert.match(shell, /inline-size:44px;block-size:44px/);
+assert.match(shell, /--mdc-icon-size:25px/);
+assert.match(shell, /nikas-shell__title strong\{[^}]*font-size:22px/);
+assert.match(source, /UI v\$\{UI_VERSION\} \/ \$\{value\?\.config\?\.integration_version/);
+assert.match(shell, /nikas-shell__tab ha-icon\{--mdc-icon-size:26px/);
+assert.match(shell, /nikas-shell__tab small\{[^}]*font-size:12px/);
 assert.match(source, /vehicle-selector.*role="tablist"/s);
 assert.match(source, /\.vehicle-selector\{[^}]*height:52px/);
-assert.match(source, /\.bottom-nav button\{[^}]*height:52px/);
+assert.match(shell, /\.nikas-shell__tab\{[^}]*block-size:52px/);
 assert.match(source, /createNikasShellScrollBoundaryGuard/);
-assert.match(source, /touchmove", moveTouch, \{ passive: false, capture: true \}/);
+assert.match(shell, /touchmove", moveTouch, \{ passive: false, capture: true \}/);
 assert.match(source, /this\._scrollBoundaryCleanup\?\.\(\)/);
 
 require("./test_title_parent.cjs");
 assert.match(source, /const SAFE_DEFAULT_ROUTE = "\/home\/overview"/);
 assert.doesNotMatch(source, /["']\/dashboard-house["']/);
-assert.match(source, /history\.pushState/);
+assert.match(shell, /history\.pushState/);
 assert.match(source, /location-changed/);
 assert.doesNotMatch(source, /history\.back\s*\(/);
 
 assert.match(source, /translate3d\(\$\{x\}px,\$\{y\}px,0\) scale\(\$\{scale\}\)/);
 assert.match(source, /if \(scale <= 1\) return \{ scale, x: 0, y: 0 \}/);
-assert.match(source, /overflow-y:auto;overflow-x:hidden/);
-assert.match(source, /touch-action:pan-y/);
-assert.match(source, /viewport\.zoom-enlarged\{overflow:hidden;touch-action:none/);
+assert.match(shell, /overflow-y:auto;overflow-x:hidden/);
+assert.match(shell, /touch-action:pan-y/);
+assert.match(shell, /viewport\.zoomed\{overflow:hidden;touch-action:none/);
 assert.match(source, /clamp\(finite\(next\.scale, 1\), 0\.75, 2\)/);
 assert.match(source, /scale >= 0\.97 && scale <= 1\.03/);
 assert.match(source, /lastTwoFingerTap/);
@@ -89,8 +90,8 @@ assert.equal(manifest.summary.security_conflict_policy, "first_reliable_home_ass
 assert.match(source, /SECURITY_BOOTSTRAP_MAX_AGE_MS = 60_000/);
 assert.match(source, /entityCandidates\.length/);
 assert.match(source, /if \(alarm === true\) return \{ key: "alarm"/);
-assert.match(source, /canvas\{width:100%;height:100%;min-height:100%/);
-assert.match(source, /metric\{[^}]*grid-template-rows:auto auto[^}]*text-align:center/);
+assert.match(source, /canvas\{height:100%;will-change:transform/);
+assert.match(source, /metric \{[^}]*grid-template-rows: auto 1fr[^}]*text-align: center/);
 assert.match(source, /metric>span\{[^}]*font-weight:750[^}]*text-align:center/);
 assert.match(source, /metric-reading\{[^}]*display:flex[^}]*align-items:center[^}]*justify-content:center/);
 assert.match(source, /_patchMetric\(node, spec\)[\s\S]*?this\._setIcon\(node, "ha-icon", spec\.icon\)[\s\S]*?this\._setText\(node, "span", spec\.label\)[\s\S]*?this\._setText\(node, "strong", spec\.value\)/);
@@ -126,7 +127,7 @@ const context = {
   setTimeout, clearTimeout, Intl, Date, Map, Set, Math, Number, String,
   CSS: { escape: (value) => String(value) },
 };
-vm.runInNewContext(source, context, { filename: "starline-panel-source.js" });
+vm.runInNewContext(bundle, context, { filename: "starline-app.js" });
 assert.ok(registry.has("starline-app-panel"));
 
 const Panel = registry.get("starline-app-panel");

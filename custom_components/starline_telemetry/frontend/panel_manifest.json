@@ -1,7 +1,7 @@
 {
   "panel": "starline",
   "route": "/starline",
-  "version": "0.7.0-beta007",
+  "version": "0.7.0-beta008",
   "entry_module": "starline-app.js",
   "web_component": "starline-app-panel",
   "ui_standard": "2.2",
@@ -58,8 +58,10 @@
       "control_size_px": 44,
       "control_radius_px": 16,
       "icon_size_px": 25,
-      "title_px": 23,
-      "subtitle_px": 14,
+      "title_px": 22,
+      "compact_title_px": 20,
+      "subtitle_px_range": [11, 14],
+      "subtitle_format": "UI v{ui_version} / {installed_integration_version}",
       "title_width": "min(360px,100%)",
       "title_height_px": 52
     },
@@ -96,6 +98,7 @@
     "primary_metrics": [
       "fuel",
       "battery",
+      "fuel_consumption",
       "engine_running",
       "security"
     ],
@@ -126,6 +129,8 @@
     "security_conflict_policy": "first_reliable_home_assistant_source_wins",
     "security_current_source": "home_assistant_then_fresh_bootstrap_60_seconds",
     "freshness_source": "home_assistant_last_reported_then_last_updated",
+    "compact_connection_source": "home_assistant_websocket",
+    "compact_freshness_scope": ["fuel", "battery"],
     "freshness_max_age_minutes": 30,
     "timestamp_timezone": "Europe/Moscow",
     "data_quality": [

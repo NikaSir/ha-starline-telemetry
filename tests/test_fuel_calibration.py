@@ -855,7 +855,7 @@ class FuelCalibrationPanelTest(unittest.IsolatedAsyncioTestCase):
 
         async def live(_, device_id, force, *, core_refreshed=False):
             security.append((device_id, force, core_refreshed))
-            return {}
+            return {"refresh_ok": core_refreshed or device_id == "130"}
 
         async def attach(*_):
             pass
@@ -871,9 +871,9 @@ class FuelCalibrationPanelTest(unittest.IsolatedAsyncioTestCase):
         )
         admin = SimpleNamespace(is_admin=True, id="admin")
         guest = SimpleNamespace(is_admin=False, id="guest")
-        await bootstrap(None, None, False, admin)
-        await bootstrap(None, None, True, guest)
-        await bootstrap(None, None, True, admin)
+        self.assertNotIn("refresh_ok", await bootstrap(None, None, False, admin))
+        self.assertFalse((await bootstrap(None, None, True, guest))["refresh_ok"])
+        self.assertTrue((await bootstrap(None, None, True, admin))["refresh_ok"])
         self.assertEqual(["admin"], calls)
         self.assertEqual(
             [
@@ -922,6 +922,8 @@ class FuelCalibrationPanelTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(["update"], calls)
         self.assertTrue(direct["arm"])
         self.assertTrue(refreshed["arm"])
+        self.assertTrue(direct["refresh_ok"])
+        self.assertTrue(refreshed["refresh_ok"])
 
     async def test_mutation_requires_admin_before_accessing_vehicle_data(self) -> None:
         handler = self._handler("websocket_panel_fuel_calibration")
