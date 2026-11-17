@@ -18,6 +18,9 @@ if TYPE_CHECKING:
     from homeassistant.helpers.storage import Store
 
 FUEL_ROLES = ("fuel", "fuel_percent", "fuel_litres", "fuel_volume")
+ODOMETER_ROLES = ("odometer", "mileage")
+ODOMETER_MATCH_WINDOW = timedelta(minutes=1)
+ODOMETER_KM_PER_UNIT = {"km": 1, "mi": 1.609344, "m": 0.001}
 MAX_REPORT_AGE = timedelta(minutes=30)
 REFUEL_FINISH_WINDOW = timedelta(minutes=30)
 RECEIPT_BEFORE_WINDOW = timedelta(minutes=5)
@@ -70,6 +73,27 @@ class RefuelSample(TypedDict):
     litres: float
     capacity_l: float | None
     receipt_at: NotRequired[str]
+    full_at: NotRequired[str]
+
+
+class OdometerReading(TypedDict):
+    """A distance at the corresponding post-refuel HA report or hour."""
+
+    km: float
+    reported_at: str
+    period_start: NotRequired[str]
+
+
+class FuelConsumption(TypedDict):
+    """Fuel consumption for the latest completed full-to-full interval."""
+
+    from_at: str
+    to_at: str
+    start: OdometerReading
+    end: OdometerReading
+    litres: float
+    distance_km: float
+    litres_per_100_km: float
 
 
 class VehicleCalibration(TypedDict):
@@ -90,6 +114,7 @@ class CalibrationView(VehicleCalibration):
     status: Literal["collecting", "ready", "inconsistent"]
     receipt_preview: NotRequired[RefuelSample]
     receipt_match: NotRequired[str]
+    consumption: NotRequired[FuelConsumption]
 
 
 def select_fuel_state(
@@ -105,6 +130,97 @@ def select_fuel_state(
 def state_reported_at(state: State) -> datetime:
     """Return the latest HA state report, with a fallback for older states."""
     return getattr(state, "last_reported", None) or state.last_updated
+
+
+def _refuel_at(sample: RefuelSample) -> str:
+    # Older on-site samples kept only the time of the changed fuel reading.
+    return sample.get("receipt_at") or sample.get("full_at") or sample["after"]["reported_at"]
+
+
+def latest_full_refuels(
+    samples: Sequence[RefuelSample],
+) -> tuple[RefuelSample, RefuelSample] | None:
+    """Choose two consecutive full fills by event time, regardless of entry order."""
+    if len(samples) < 2:
+        return None
+    opening, closing = sorted(
+        samples, key=lambda sample: datetime.fromisoformat(_refuel_at(sample))
+    )[-2:]
+    opening_report = datetime.fromisoformat(opening["after"]["reported_at"])
+    closing_report = datetime.fromisoformat(closing["after"]["reported_at"])
+    closing_at = datetime.fromisoformat(_refuel_at(closing))
+    if (
+        datetime.fromisoformat(_refuel_at(opening)) < closing_at
+        and opening_report <= closing_at
+        and opening_report < closing_report
+    ):
+        return opening, closing
+    return None
+
+
+def _odometer_km(value: object, unit: str) -> float | None:
+    if unit not in ODOMETER_KM_PER_UNIT or isinstance(value, bool):
+        return None
+    try:
+        km = float(value) * ODOMETER_KM_PER_UNIT[unit]
+    except (TypeError, ValueError, OverflowError):
+        return None
+    return km if math.isfinite(km) and km >= 0 else None
+
+
+def matched_odometer(
+    states: Sequence[State], report_at: datetime
+) -> OdometerReading | None:
+    """Find a valid odometer state close to the matched fuel increase."""
+    for state in sorted(states, key=lambda item: abs(item.last_updated - report_at)):
+        timestamp = state.last_updated
+        if abs(timestamp - report_at) > ODOMETER_MATCH_WINDOW:
+            break
+        km = _odometer_km(state.state, state.attributes.get("unit_of_measurement", ""))
+        if km is not None:
+            return {"km": km, "reported_at": timestamp.astimezone(UTC).isoformat()}
+    return None
+
+
+def hourly_odometer(
+    rows: Sequence[Mapping[str, object]], unit: str, start: datetime, end: datetime
+) -> OdometerReading | None:
+    """Use the odometer state in the same hour as the matched fuel increase."""
+    for row in rows:
+        if row.get("start") == start.timestamp() and row.get("end") == end.timestamp():
+            km = _odometer_km(row.get("state"), unit)
+            if km is not None:
+                return {"km": km, "period_start": start.isoformat(), "reported_at": end.isoformat()}
+    return None
+
+
+def average_fuel_consumption(
+    opening: RefuelSample,
+    closing: RefuelSample,
+    start: OdometerReading,
+    end: OdometerReading,
+) -> FuelConsumption | None:
+    """The second fill replaces the fuel used since the first full tank."""
+    distance_km = end["km"] - start["km"]
+    litres = closing["litres"]
+    if (
+        distance_km <= 0
+        or litres <= 0
+        or datetime.fromisoformat(end["reported_at"]) <= datetime.fromisoformat(start["reported_at"])
+    ):
+        return None
+    rate = 100 * litres / distance_km
+    if not math.isfinite(rate):
+        return None
+    return {
+        "from_at": _refuel_at(opening),
+        "to_at": _refuel_at(closing),
+        "start": start,
+        "end": end,
+        "litres": litres,
+        "distance_km": distance_km,
+        "litres_per_100_km": rate,
+    }
 
 
 def _percent_entity(state: State | None) -> str | None:
@@ -551,5 +667,6 @@ class FuelCalibration:
             "after": after,
             "litres": pending["litres"],
             "capacity_l": capacity,
+            "full_at": pending["full_at"],
         }
         _append_sample(record, sample)

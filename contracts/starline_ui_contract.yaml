@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: "0.7.0-beta006"
+version: "0.7.0-beta007"
 ui_standard: 2.2
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
@@ -101,7 +101,7 @@ summary_screen:
   workspace_heading: false
   per_vehicle:
     portrait: fixed_local_color_matched_image
-    primary_metrics: [fuel, battery, engine_running, security]
+    primary_metrics: [fuel, battery, fuel_consumption, engine_running, security]
     metric_tile:
       label: bold_centered_top
       label_weight: 750
@@ -160,6 +160,19 @@ fuel_calibration:
   raw_reading_visible: true
   factory_factors: forbidden
   vehicle_commands: forbidden
+
+fuel_consumption:
+  display_unit: "л/100 км"
+  scope: per_vehicle
+  interval: latest_two_confirmed_full_refuels_by_event_time
+  litres: closing_receipt_volume
+  distance: difference_from_one_readable_odometer
+  source: home_assistant_recorder
+  odometer_reference: matched_post_refuel_fuel_report
+  raw_match_window_minutes: 1
+  fallback: odometer_state_from_the_same_hourly_interval
+  missing_or_invalid_inputs: dash_on_summary_explanation_in_details
+  detail_timezone: Europe/Moscow
 
 typography:
   reference: official_starline_mobile_app

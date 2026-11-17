@@ -10,11 +10,11 @@ The bridge resolves entities from the Home Assistant entity registry by stable S
 
 When standalone telemetry becomes available, integration-owned roles (`{device_id}_{role}`) take precedence role-by-role. The panel layout does not change.
 
-## UI v0.7.0-beta006
+## UI v0.7.0-beta007
 
 The functional reference is the native StarLine mobile application, while colors, geometry and navigation remain aligned with the NikaS Home Assistant panel language.
 
-1. **Сводка** — one card per vehicle, with Murano 130 above Murano 683 in phone portrait. Fuel, battery, engine, security and perimeter states are visible with details collapsed. Each card shows the most recent reliable Home Assistant report time in Moscow time and distinguishes stale and unavailable data.
+1. **Сводка** — one card per vehicle, with Murano 130 above Murano 683 in phone portrait. Fuel, average fuel consumption, battery, engine, security and perimeter states are visible with details collapsed. Each card shows the most recent reliable Home Assistant report time in Moscow time and distinguishes stale and unavailable data.
 2. **История** — the official read-only StarLine event journal when a usable session exists, with confirmed Home Assistant Recorder transitions as fallback.
 3. **Поездки** — movement history derived from recorded `device_tracker` coordinates. Home Assistant's native Map card renders the 72-hour path; trip cards estimate travelled distance from recorded GPS points.
 4. **Диагностика** — source, freshness, entity availability, entity bindings and fuel calibration.
@@ -34,6 +34,12 @@ To capture a refill live:
 3. Wait for a changed fuel reading after that mark. In bridge mode an administrator can use **Обновить** in the header to request a read-only StarLine refresh, including OBD data. Choose **Записать полный бак** within 30 minutes of marking the full tank. Use **Отменить запись** for a partial fill or an expired mark.
 
 Home Assistant stores the samples per StarLine device. A repeated HA report of the same fuel value cannot complete the sample. The estimate requires at least three compatible full refuels from the active percentage source. The panel multiplies a fresh raw percentage by 100 divided by the median full-tank reading and bounds the estimate to 0–100%. The spread of full-tank readings and consistency with receipt volumes can suspend the estimate. A confirmed capacity enables an additional check against the receipt. The raw reading, its source and HA report time remain visible. While the panel is open, it refreshes report times and calibration state from HA every minute without querying StarLine. The calibration has no factory coefficient and sends no command to the vehicle.
+
+## Average fuel consumption
+
+For each vehicle the summary shows the latest completed interval between two confirmed full fills. The estimate divides the second receipt's litres by the difference in odometer readings and multiplies by 100. This method assumes that all fuel added during the interval came from the closing fill. An intermediate unrecorded fill lowers the estimate.
+
+The calculation uses the nearest Recorder odometer state within one minute of the matched post-refuel fuel report, or the odometer value from the matching hourly interval. Both readings must come from the same odometer entity. The details show the fuel receipts' period, closing litres, distance and mileage timestamps in Moscow time. The summary shows a dash when the inputs are incomplete or the difference in mileage is invalid. A late report can include distance driven after filling, so the value is marked as an estimate.
 
 ## History and Recorder use
 

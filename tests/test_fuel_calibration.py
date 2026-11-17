@@ -85,6 +85,65 @@ class FuelCalibrationTest(unittest.IsolatedAsyncioTestCase):
         self._report(after, entity_id=entity_id)
         return await self._apply("finish", device_id=device_id, started_at=started_at)
 
+    async def test_average_uses_the_closing_receipt_and_odometer_from_each_post_refuel_report(self):
+        opening_at = datetime(2025, 5, 6, 17, 11, tzinfo=UTC)
+        opening_hour = datetime(2025, 5, 6, 21, tzinfo=UTC)
+        opening_report = opening_hour + timedelta(hours=1)
+        closing_at = datetime(2025, 5, 18, 14, 54, tzinfo=UTC)
+        closing_report = closing_at + timedelta(minutes=39, seconds=40)
+        opening = {
+            "receipt_at": opening_at.isoformat(),
+            "after": {
+                "reported_at": opening_report.isoformat(),
+                "period_start": opening_hour.isoformat(),
+            },
+            "litres": 40.10,
+        }
+        closing = {
+            "receipt_at": closing_at.isoformat(),
+            "after": {"reported_at": closing_report.isoformat()},
+            "litres": 35.40,
+        }
+        first, last = self.module.latest_full_refuels([closing, opening])
+        start = self.module.hourly_odometer([
+            {"start": (opening_hour - timedelta(hours=1)).timestamp(),
+             "end": opening_hour.timestamp(), "state": 15_032},
+            {"start": opening_hour.timestamp(), "end": opening_report.timestamp(),
+             "state": 15_060},
+        ], "km", opening_hour, opening_report)
+        end = self.module.matched_odometer([
+            SimpleNamespace(state="15289", attributes={"unit_of_measurement": "km"},
+                            last_updated=closing_at),
+            SimpleNamespace(state="15300", attributes={"unit_of_measurement": "km"},
+                            last_updated=closing_report + timedelta(milliseconds=1)),
+        ], closing_report)
+        average = self.module.average_fuel_consumption(first, last, start, end)
+        self.assertEqual(35.40, average["litres"])
+        self.assertEqual(240, average["distance_km"])
+        self.assertAlmostEqual(100 * 35.40 / 240, average["litres_per_100_km"])
+        self.assertEqual(opening_at.isoformat(), average["from_at"])
+        self.assertEqual(closing_at.isoformat(), average["to_at"])
+        self.assertEqual(opening_hour.isoformat(), average["start"]["period_start"])
+
+    async def test_average_rejects_overlapping_refuels_and_missing_or_nonincreasing_odometer(self):
+        early = datetime(2026, 11, 12, 14, tzinfo=UTC)
+        late = early + timedelta(days=1)
+        opening = {"after": {"reported_at": early.isoformat()}}
+        closing = {"after": {"reported_at": late.isoformat()}, "litres": 30}
+        self.assertEqual((opening, closing), self.module.latest_full_refuels([closing, opening]))
+        start = {"km": 1000, "reported_at": early.isoformat()}
+        for end_km in (1000, 960):
+            end = {"km": end_km, "reported_at": late.isoformat()}
+            self.assertIsNone(self.module.average_fuel_consumption(opening, closing, start, end))
+        closing["receipt_at"] = (early - timedelta(hours=1)).isoformat()
+        self.assertIsNone(self.module.latest_full_refuels([opening, closing]))
+        self.assertIsNone(self.module.matched_odometer([
+            SimpleNamespace(state="unavailable", attributes={"unit_of_measurement": "km"},
+                            last_updated=early),
+            SimpleNamespace(state="1000", attributes={"unit_of_measurement": "km"},
+                            last_updated=early - timedelta(minutes=3)),
+        ], early))
+
     async def test_record_receipt_hours_later_uses_the_nearby_history(self):
         self.now = datetime(2026, 11, 13, 23, 0, tzinfo=UTC)
         self._report(12)
@@ -897,6 +956,24 @@ class FuelCalibrationPanelTest(unittest.IsolatedAsyncioTestCase):
         await handler(None, vehicle, user)
         self.assertNotIn("fuel_calibration", vehicle)
 
+    async def test_consumption_requires_read_permission_on_the_odometer(self) -> None:
+        mileage_id = "sensor.murano_130_mileage"
+        checked = []
+        handler = self._handler(
+            "_async_attach_fuel_consumption",
+            latest_full_refuels=lambda *_: ({}, {}),
+            ODOMETER_ROLES=("odometer", "mileage"),
+            POLICY_READ="read",
+        )
+        user = SimpleNamespace(
+            is_admin=False,
+            permissions=SimpleNamespace(check_entity=lambda *args: checked.append(args) or False),
+        )
+        view = {"samples": [{}, {}]}
+        await handler(None, {"entities": {"mileage": mileage_id}}, view, user)
+        self.assertEqual([(mileage_id, "read")], checked)
+        self.assertNotIn("consumption", view)
+
     async def test_report_times_includes_only_readable_vehicle_reports_and_calibrations(self):
         now = datetime(2026, 11, 9, tzinfo=UTC)
         raw_states = {
@@ -932,12 +1009,16 @@ class FuelCalibrationPanelTest(unittest.IsolatedAsyncioTestCase):
         async def broken_view(*_):
             raise OSError("storage unavailable")
 
+        async def attach_consumption(*_):
+            pass
+
         service = SimpleNamespace(async_view=shared_view)
         attach = self._handler(
             "_async_attach_fuel_calibration",
             _fuel_state=lambda hass, vehicle: hass.states.get(vehicle["entities"]["fuel"]),
             _fuel_entity_id=lambda vehicle, state: state.entity_id,
             _panel_fuel_calibration=lambda _: service,
+            _async_attach_fuel_consumption=attach_consumption,
             HomeAssistantError=RuntimeError,
             _LOGGER=SimpleNamespace(exception=lambda *_: None),
             POLICY_READ="read",

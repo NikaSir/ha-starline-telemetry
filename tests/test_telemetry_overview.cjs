@@ -153,3 +153,37 @@ assert.equal(panel._batteryMetric(vehicle).gauge, null);
 panel._hass.states[battery] = state("12.4", "V");
 panel._hass.connected = false;
 assert.equal(panel._batteryMetric(vehicle).gauge, null);
+
+const textByNode = new Map();
+const consumptionPanel = Object.create(Panel.prototype);
+const pane = {};
+const tile = {};
+consumptionPanel.$ = (selector) => {
+  assert.equal(selector, ".fuel-consumption");
+  return tile;
+};
+consumptionPanel._setClass = (node, name, enabled) => {
+  assert.equal(node, tile);
+  assert.equal(name, "muted");
+  tile.muted = enabled;
+};
+consumptionPanel._setText = (_node, selector, text) => textByNode.set(selector, text);
+const consumed = {
+  from_at: "2025-05-06T17:11:00+00:00",
+  to_at: "2025-05-18T14:54:00+00:00",
+  start: { km: 15060, period_start: "2025-05-06T21:00:00+00:00", reported_at: "2025-05-06T22:00:00+00:00" },
+  end: { km: 15300, reported_at: "2025-05-18T15:33:40+00:00" },
+  litres: 35.40,
+  distance_km: 240,
+  litres_per_100_km: 14.75,
+};
+consumptionPanel._patchFuelConsumption(pane, { consumption: consumed });
+assert.equal(textByNode.get("strong"), "≈ 14,8 л/100 км");
+assert.match(textByNode.get(".consumption-source"), /35,40 л за 240,0 км/);
+assert.match(textByNode.get(".consumption-source"), /06\.05\.2025.*20:11.*18\.05\.2025.*17:54 МСК/);
+assert.match(textByNode.get(".consumption-source"), /почасовая статистика/);
+assert.equal(tile.muted, false);
+consumptionPanel._patchFuelConsumption(pane, { samples: [{}] });
+assert.equal(textByNode.get("strong"), "—");
+assert.match(textByNode.get(".consumption-source"), /две записи полного бака/);
+assert.equal(tile.muted, true);
