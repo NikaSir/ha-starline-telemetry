@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping, Sequence
+from collections.abc import Collection, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from functools import partial
 import logging
@@ -51,8 +51,18 @@ from .const import (
 from .data_quality import normalize_binary_value
 from .fuel_calibration import (
     FUEL_ROLES,
+    ODOMETER_KM_PER_UNIT,
+    ODOMETER_MATCH_WINDOW,
+    ODOMETER_ROLES,
+    CalibrationView,
     FuelCalibration,
     FuelCalibrationError,
+    FuelReport,
+    OdometerReading,
+    average_fuel_consumption,
+    hourly_odometer,
+    latest_full_refuels,
+    matched_odometer,
     select_fuel_state,
     state_reported_at,
 )
@@ -71,6 +81,7 @@ _DATA_HISTORY_BUDGET = "native_panel_history_budget"
 _DATA_EVENT_DESCRIPTIONS = "native_panel_event_descriptions"
 _DATA_LIVE_SECURITY_CACHE = "native_panel_live_security_cache"
 _DATA_FUEL_CALIBRATION = "native_panel_fuel_calibration"
+_DATA_FUEL_CONSUMPTION_CACHE = "native_panel_fuel_consumption_cache"
 _DATA_CORE_REFRESH = "native_panel_core_refresh"
 _LIVE_SECURITY_CACHE_SECONDS = 60
 _CORE_REFRESH_SECONDS = 60
@@ -146,7 +157,7 @@ def _fuel_entity_id(vehicle: dict[str, Any], state: State | None) -> str | None:
     return next((vehicle["entities"][role] for role in FUEL_ROLES if role in vehicle["entities"]), None)
 
 
-async def _async_fuel_history(
+async def _async_recorder_history(
     hass: HomeAssistant, entity_id: str, start: datetime, end: datetime
 ) -> list[State]:
     try:
@@ -167,13 +178,14 @@ async def _async_fuel_history(
     return history.get(entity_id, [])
 
 
-def _read_hourly_fuel(
-    hass: HomeAssistant, entity_id: str, start: datetime, end: datetime
-) -> Sequence[Mapping[str, object]]:
+def _read_hourly_states(
+    hass: HomeAssistant, entity_id: str, start: datetime, end: datetime, units: Collection[str]
+) -> tuple[str, Sequence[Mapping[str, object]]]:
     metadata = get_metadata(hass, statistic_ids={entity_id}).get(entity_id)
-    if metadata is None or metadata[1]["unit_of_measurement"] != "%":
-        return []
-    return statistics_during_period(
+    unit = metadata[1]["unit_of_measurement"] if metadata is not None else ""
+    if unit not in units:
+        return "", []
+    return unit, statistics_during_period(
         hass, start, end, {entity_id}, "hour", None, {"state"}
     ).get(entity_id, [])
 
@@ -181,9 +193,72 @@ def _read_hourly_fuel(
 async def _async_hourly_fuel(
     hass: HomeAssistant, entity_id: str, start: datetime, end: datetime
 ) -> Sequence[Mapping[str, object]]:
-    return await get_instance(hass).async_add_executor_job(
-        _read_hourly_fuel, hass, entity_id, start, end
+    _, rows = await get_instance(hass).async_add_executor_job(
+        _read_hourly_states, hass, entity_id, start, end, {"%"}
     )
+    return rows
+
+
+async def _async_refuel_odometer(
+    hass: HomeAssistant, entity_id: str, report: FuelReport
+) -> OdometerReading | None:
+    reported_at = datetime.fromisoformat(report["reported_at"])
+    if "period_start" in report:
+        start = datetime.fromisoformat(report["period_start"])
+        end = reported_at
+    else:
+        states = await _async_recorder_history(
+            hass, entity_id, reported_at - ODOMETER_MATCH_WINDOW, reported_at + ODOMETER_MATCH_WINDOW
+        )
+        if (reading := matched_odometer(states, reported_at)) is not None:
+            return reading
+        start = reported_at.replace(minute=0, second=0, microsecond=0)
+        end = start + timedelta(hours=1)
+    unit, rows = await get_instance(hass).async_add_executor_job(
+        _read_hourly_states, hass, entity_id, start, end, ODOMETER_KM_PER_UNIT
+    )
+    return hourly_odometer(rows, unit, start, end)
+
+
+async def _async_attach_fuel_consumption(
+    hass: HomeAssistant, vehicle: dict[str, Any], view: CalibrationView, user: User
+) -> None:
+    pair = latest_full_refuels(view["samples"])
+    if pair is None:
+        return
+    odometer_ids = tuple(
+        entity_id
+        for role in ODOMETER_ROLES
+        if (entity_id := vehicle["entities"].get(role))
+        and (user.is_admin or user.permissions.check_entity(entity_id, POLICY_READ))
+    )
+    if not odometer_ids:
+        return
+    device_id = vehicle["device_id"]
+    cache = _history_domain_data(hass).setdefault(_DATA_FUEL_CONSUMPTION_CACHE, {})
+    key = (odometer_ids, pair)
+    async with _history_lock(hass, f"fuel_consumption:{device_id}"):
+        cached = cache.get(device_id)
+        if cached and cached[0] == key and time.monotonic() - cached[1] < HISTORY_CACHE_SECONDS:
+            consumption = cached[2]
+        else:
+            opening, closing = pair
+            consumption = None
+            try:
+                for entity_id in odometer_ids:
+                    start, end = await asyncio.gather(
+                        _async_refuel_odometer(hass, entity_id, opening["after"]),
+                        _async_refuel_odometer(hass, entity_id, closing["after"]),
+                    )
+                    if start is not None and end is not None:
+                        consumption = average_fuel_consumption(opening, closing, start, end)
+                        if consumption is not None:
+                            break
+            except Exception:  # noqa: BLE001
+                _LOGGER.debug("Unable to read StarLine refuel odometer history", exc_info=True)
+            cache[device_id] = (key, time.monotonic(), consumption)
+    if consumption is not None:
+        view["consumption"] = consumption
 
 
 async def _async_attach_fuel_calibration(
@@ -206,6 +281,7 @@ async def _async_attach_fuel_calibration(
         pending["before"]["entity_id"], POLICY_READ
     ):
         view["pending"] = None
+    await _async_attach_fuel_consumption(hass, vehicle, view, user)
     vehicle["fuel_calibration"] = view
 
 
@@ -607,7 +683,7 @@ async def websocket_panel_fuel_calibration(
             receipt_at=msg.get("receipt_at"),
             expected_match=msg.get("expected_match"),
             fuel_entity_id=_fuel_entity_id(vehicle, read_state()),
-            read_history=partial(_async_fuel_history, hass),
+            read_history=partial(_async_recorder_history, hass),
             read_hourly=partial(_async_hourly_fuel, hass),
         )
     except FuelCalibrationError as err:
@@ -619,6 +695,7 @@ async def websocket_panel_fuel_calibration(
             msg["id"], "fuel_calibration_unavailable", "Fuel calibration is unavailable"
         )
         return
+    await _async_attach_fuel_consumption(hass, vehicle, view, connection.user)
     connection.send_result(msg["id"], view)
 
 

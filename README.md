@@ -44,7 +44,7 @@ In core-bridge mode, the request reuses the active core StarLine SLNet session i
 
 ## Current baseline
 
-This branch targets integration and panel version `0.7.0-beta006`.
+This branch targets integration and panel version `0.7.0-beta007`.
 
 Platforms:
 
@@ -149,7 +149,7 @@ The native panel lives at `/starline` and uses the fixed phone-first navigation:
 
 The shared summary shows Murano 130 first and Murano 683 second. The cards use blue and black portraits with matching geometry and camera angle. Text and icons show engine, security and perimeter states.
 
-Each card shows fuel, battery, engine state and security, with separate text for doors, hood and trunk. The battery uses volts for voltage and percent when the source supplies a charge reading. Expand **Подробнее** for temperatures, ignition, parking brake, odometer, OBD and signal readings when available. The summary distinguishes stale data, unavailable data and loss of connection to Home Assistant. Report times use Moscow time.
+Each card shows fuel, average consumption in litres per 100 km, battery, engine state and security, with separate text for doors, hood and trunk. The consumption estimate uses receipt litres and recorded odometer readings for the two latest full fills. Expand **Подробнее** for the calculation inputs, temperatures, ignition, parking brake, odometer, OBD and signal readings when available. The battery uses volts for voltage and percent when the source supplies a charge reading. The summary distinguishes stale data, unavailable data and loss of connection to Home Assistant. Report times use Moscow time.
 
 The selector appears on History, Trips and Diagnostics. The header and bottom navigation stay fixed while the workspace scrolls or zooms. The summary saves its zoom separately from the per-vehicle views. Double-tap with two fingers to reset to 100%.
 

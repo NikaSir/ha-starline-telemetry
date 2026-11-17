@@ -1,8 +1,12 @@
 # Changelog
 
-Current branch version is [`0.7.0-beta006`](custom_components/starline_telemetry/manifest.json).
+Current branch version is [`0.7.0-beta007`](custom_components/starline_telemetry/manifest.json).
 
 Existing version-specific notes remain under [`docs/`](docs/) and earlier project history remains in Git history; neither is reconstructed here.
+
+## 0.7.0-beta007
+
+- Show estimated average fuel consumption for each vehicle in **Сводка**. Use the last two confirmed full fills and corresponding Recorder odometer readings. Show the calculation period, litres, distance and reading times in **Подробнее**.
 
 ## 0.7.0-beta006
 
