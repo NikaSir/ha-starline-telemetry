@@ -40,7 +40,7 @@ SETUP = """() => {
        start:{km:100, reported_at:'2026-10-24T15:00:00+00:00'},
        end:{km:223, reported_at:'2026-11-12T15:00:00+00:00'}}}};
   });
-  window.payload = {source:{primary:'core_starline'}, panel:{}, vehicles};
+  window.payload = {source:{primary:'core_starline'}, panel:{fuel_calibration_can_edit:true}, vehicles};
   const callWS = async (message) => {
     if (message.type === 'starline_telemetry/panel/report_times') return {reports:{}};
     if (message.type === 'starline_telemetry/panel/history') return {events:[]};
@@ -63,7 +63,7 @@ MOUNT = """() => {
   window.host = document.body.appendChild(document.createElement('div'));
   host.id = 'host';
   window.panel = document.createElement('starline-app-panel');
-  panel.panel = {config:{entry_id:'test', integration_version:'0.7.0-beta008'}};
+  panel.panel = {config:{entry_id:'test', integration_version:'0.7.0-beta009'}};
   window.root = panel.shadowRoot;
   const style = document.createElement('style');
   style.textContent = 'ha-icon{display:inline-block;width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px);background:currentColor;border-radius:20%;mask:radial-gradient(circle, #000 38%, transparent 42%)}';
@@ -111,8 +111,71 @@ GEOMETRY = """() => {
 }"""
 
 
+def check_mobile_workspace(page):
+    for dark in (False, True):
+        page.evaluate("(dark) => { applyHass(dark); panel._setView('diagnostics'); }", dark)
+        assert page.locator(".vehicle-selector").evaluate(
+            "(node) => getComputedStyle(node).backgroundColor === 'rgba(0, 0, 0, 0)'"
+        )
+        left, right = [
+            page.locator(".vehicle-selector button").nth(i).bounding_box()
+            for i in range(2)
+        ]
+        assert left["width"] == right["width"]
+        assert left["x"] == 430 - right["x"] - right["width"]
+
+    page.evaluate("root.querySelector('.vehicle-pane.active .fuel-receipt').open = true")
+    fields = page.locator(".vehicle-pane.active .fuel-receipt input")
+    assert fields.count() == 3
+    boxes = [field.bounding_box() for field in fields.all()]
+    assert all(box["x"] == boxes[0]["x"] and box["width"] == boxes[0]["width"] for box in boxes)
+
+    for view in ("history", "trips"):
+        page.evaluate("(view) => panel._setView(view)", view)
+        assert page.locator(".view.active .view-head button").count() == 0
+
+    page.evaluate("panel._setView('status')")
+    touch = page.context.new_cdp_session(page)
+    area = page.locator(".viewport").bounding_box()
+    x, y = area["width"] / 2, area["y"] + 130
+
+    def send(kind, *points):
+        touch.send("Input.dispatchTouchEvent", {
+            "type": kind,
+            "touchPoints": [{"x": px, "y": y, "id": i} for i, px in enumerate(points)],
+        })
+
+    def tap():
+        send("touchStart", x - 45)
+        send("touchStart", x - 45, x + 45)
+        send("touchEnd", x - 45)
+        send("touchEnd")
+
+    for end_distance, reduced in [(32, True), (82, False)]:
+        send("touchStart", x - 52)
+        send("touchStart", x - 52, x + 52)
+        send("touchMove", x - end_distance, x + end_distance)
+        send("touchEnd")
+        assert page.evaluate("panel._zoom.state.scale < 1" if reduced else "panel._zoom.state.scale > 1")
+        if reduced:
+            canvas = page.locator(".canvas").bounding_box()
+            assert abs(canvas["x"] + canvas["width"] / 2 - x) < 1
+        tap()
+        assert page.evaluate("panel._zoom.state.scale !== 1")
+        tap()
+        assert page.evaluate("""() => {
+            const { state, viewport, storageKey } = panel._zoom;
+            return state.scale === 1 && state.x === 0 && state.y === 0 &&
+                viewport.scrollTop === 0 && viewport.scrollLeft === 0 &&
+                JSON.parse(localStorage.getItem(storageKey)).scale === 1;
+        }""")
+        assert page.locator(".zoom-feedback").is_visible()
+    touch.detach()
+
+
+
 def run(browser):
-    page = browser.new_page(viewport={"width": 430, "height": 932})
+    page = browser.new_page(viewport={"width": 430, "height": 932}, has_touch=True)
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
     def asset(route):
@@ -148,6 +211,7 @@ def run(browser):
     page.evaluate("host.style.setProperty('--host-width','430px'); host.style.top='59px'; host.style.bottom='34px'; applyHass(true)")
     safe_area = page.evaluate(GEOMETRY)
     assert safe_area["info"][-1]["bottom"] <= safe_area["viewportBottom"], safe_area
+    check_mobile_workspace(page)
     page.clock.install()
     icon = page.locator(".refresh ha-icon")
     button = page.locator(".refresh")

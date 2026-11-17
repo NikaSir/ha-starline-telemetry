@@ -315,7 +315,7 @@ function navigateNikasShell(path, { captureSource = false } = {}) {
   return true;
 }
 
-const UI_VERSION = "0.7.0-beta008";
+const UI_VERSION = "0.7.0-beta009";
 const ASSET_BASE = "/starline_telemetry_static/assets";
 const EVENT_WINDOW_HOURS = 24;
 const TRIP_WINDOW_HOURS = 72;
@@ -381,17 +381,16 @@ const midpoint = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 const domainOf = (entityId) => String(entityId || "").split(".", 1)[0];
 
 class ZoomController {
-  constructor(viewport, canvas, storageKey) {
+  constructor(viewport, canvas, storageKey, cancelHold) {
     this.viewport = viewport;
     this.canvas = canvas;
     this.storageKey = storageKey;
     this.state = { scale: 1, x: 0, y: 0 };
-    this.pointers = new Map();
     this.gesture = null;
-    this.lastTwoFingerTap = 0;
+    this.lastTwoFingerTap = null;
     this.suppressUntil = 0;
     this._restore();
-    this._bind();
+    this._bind(cancelHold);
     this.apply(false);
   }
 
@@ -423,6 +422,7 @@ class ZoomController {
     this.state = this._normalized();
     const { scale, x, y } = this.state;
     this.canvas.style.transform = `translate3d(${x}px,${y}px,0) scale(${scale})`;
+    this.canvas.style.transformOrigin = scale < 1 ? "50% 0" : "0 0";
     this.canvas.style.marginBottom = scale < 1
       ? `${Math.round((scale - 1) * Math.max(this.canvas.scrollHeight, this.canvas.offsetHeight))}px`
       : "0px";
@@ -433,6 +433,7 @@ class ZoomController {
 
   reset(feedback = true) {
     this.state = { scale: 1, x: 0, y: 0 };
+    this.viewport.scrollLeft = 0;
     this.viewport.scrollTop = 0;
     this.apply();
     if (feedback) {
@@ -463,7 +464,7 @@ class ZoomController {
     }
   }
 
-  _bind() {
+  _bind(cancelHold) {
     const point = (event) => {
       const rect = this.viewport.getBoundingClientRect();
       return { x: event.clientX - rect.left, y: event.clientY - rect.top };
@@ -474,85 +475,103 @@ class ZoomController {
         event.stopImmediatePropagation();
       }
     }, true);
-    this.viewport.addEventListener("pointerdown", (event) => {
-      if (event.pointerType !== "touch") return;
-      const current = point(event);
-      this.pointers.set(event.pointerId, { ...current, startX: current.x, startY: current.y });
-      this.viewport.setPointerCapture?.(event.pointerId);
-      if (this.pointers.size === 1) {
+    this.viewport.addEventListener("touchstart", (event) => {
+      const touches = [...event.touches];
+      if (touches.length === 1) {
         const bounds = this._bounds();
         this.gesture = {
           type: this.state.scale > 1 ? "pan" : "native",
-          start: current,
+          start: point(touches[0]),
           state: { ...this.state },
-          startedAt: performance.now(),
           panX: bounds.minX < 0,
           panY: bounds.minY < 0,
           moved: false,
         };
-      } else if (this.pointers.size === 2) {
-        const [a, b] = [...this.pointers.values()];
+      } else if (touches.length === 2 && !this.gesture?.releasing) {
+        cancelHold();
+        const starts = new Map(touches.map((touch) => [touch.identifier, point(touch)]));
+        const [a, b] = starts.values();
         this.gesture = {
           type: "pinch",
           state: { ...this.state },
           scrollTop: this.viewport.scrollTop,
+          starts,
           startDistance: Math.max(1, distance(a, b)),
           startMidpoint: midpoint(a, b),
           startedAt: performance.now(),
-          moved: false,
+          moved: this.gesture?.moved ?? false,
         };
-        event.preventDefault();
+        if (event.cancelable) event.preventDefault();
+      } else {
+        this.gesture = null;
+        this.lastTwoFingerTap = null;
       }
-    });
-    this.viewport.addEventListener("pointermove", (event) => {
-      const tracked = this.pointers.get(event.pointerId);
-      if (!tracked || event.pointerType !== "touch") return;
-      Object.assign(tracked, point(event));
+    }, { passive: false });
+    this.viewport.addEventListener("touchmove", (event) => {
       const gesture = this.gesture;
-      if (!gesture || gesture.type === "native") return;
-      if (gesture.type === "pan" && this.pointers.size === 1) {
-        const dx = gesture.panX ? tracked.x - gesture.start.x : 0;
-        const dy = gesture.panY ? tracked.y - gesture.start.y : 0;
+      if (!gesture || gesture.releasing) return;
+      if (gesture.type === "native" && event.touches.length === 1) {
+        gesture.moved ||= distance(point(event.touches[0]), gesture.start) >= 7;
+      } else if (gesture.type === "pan" && event.touches.length === 1) {
+        const current = point(event.touches[0]);
+        const dx = gesture.panX ? current.x - gesture.start.x : 0;
+        const dy = gesture.panY ? current.y - gesture.start.y : 0;
         gesture.moved ||= Math.hypot(dx, dy) >= 7;
         if (!gesture.moved) return;
-        event.preventDefault();
+        if (event.cancelable) event.preventDefault();
         this.state = { scale: gesture.state.scale, x: gesture.state.x + dx, y: gesture.state.y + dy };
         this.apply();
-      } else if (gesture.type === "pinch" && this.pointers.size >= 2) {
-        const [a, b] = [...this.pointers.values()];
+      } else if (gesture.type === "pinch" && event.touches.length === 2) {
+        const touches = [...event.touches];
+        const [a, b] = touches.map(point);
+        if (event.cancelable) event.preventDefault();
+        gesture.moved ||= touches.some((touch) => distance(point(touch), gesture.starts.get(touch.identifier)) >= 7);
+        if (!gesture.moved) return;
         const middle = midpoint(a, b);
         const scale = clamp(gesture.state.scale * distance(a, b) / gesture.startDistance, 0.75, 2);
-        const focalX = (gesture.startMidpoint.x - gesture.state.x) / gesture.state.scale;
+        const startX = gesture.state.scale < 1
+          ? this.canvas.offsetWidth * (1 - gesture.state.scale) / 2
+          : gesture.state.x;
+        const focalX = (gesture.startMidpoint.x - startX) / gesture.state.scale;
         const focalY = (gesture.startMidpoint.y + gesture.scrollTop - gesture.state.y) / gesture.state.scale;
         this.state = {
           scale,
           x: middle.x - focalX * scale,
           y: middle.y - focalY * scale,
         };
-        gesture.moved ||= Math.abs(scale - gesture.state.scale) > 0.01 || distance(middle, gesture.startMidpoint) > 7;
-        event.preventDefault();
         this.apply();
         if (scale <= 1) this.viewport.scrollTop = clamp(focalY * scale - middle.y, 0, this.viewport.scrollHeight - this.viewport.clientHeight);
       }
-    });
-    const finish = (event, cancelled = false) => {
-      if (!this.pointers.delete(event.pointerId) || !this.gesture) return;
+    }, { passive: false });
+    this.viewport.addEventListener("touchend", (event) => {
       const gesture = this.gesture;
-      if (this.pointers.size) return;
+      if (!gesture) return;
       const now = performance.now();
-      if (!cancelled && gesture.type === "pinch" && !gesture.moved && now - gesture.startedAt <= 280) {
-        if (now - this.lastTwoFingerTap <= 360) {
-          this.lastTwoFingerTap = 0;
-          this.reset();
-          this.suppressUntil = now + 420;
-        } else this.lastTwoFingerTap = now;
+      if (gesture.type === "pinch") {
+        gesture.releasing = true;
+        gesture.moved ||= [...event.changedTouches].some((touch) => distance(point(touch), gesture.starts.get(touch.identifier)) >= 7);
+        this.suppressUntil = now + 420;
+        if (event.cancelable) event.preventDefault();
+        if (event.touches.length) return;
+        if (!gesture.moved && now - gesture.startedAt <= 280) {
+          if (this.lastTwoFingerTap !== null && now - this.lastTwoFingerTap <= 360) {
+            this.lastTwoFingerTap = null;
+            this.reset();
+          } else this.lastTwoFingerTap = now;
+        } else {
+          this.lastTwoFingerTap = null;
+          if (this.state.scale === 1) this.reset(false);
+        }
+      } else {
+        this.lastTwoFingerTap = null;
+        if (gesture.type === "pan" && gesture.moved) this.suppressUntil = now + 420;
       }
-      if (gesture.moved) this.suppressUntil = now + 420;
       this.gesture = null;
-      this.apply();
-    };
-    this.viewport.addEventListener("pointerup", (event) => finish(event));
-    this.viewport.addEventListener("pointercancel", (event) => finish(event, true));
+    }, { passive: false });
+    this.viewport.addEventListener("touchcancel", () => {
+      this.gesture = null;
+      this.lastTwoFingerTap = null;
+    });
     new ResizeObserver(() => this.apply(false)).observe(this.viewport);
   }
 }
@@ -667,7 +686,7 @@ class StarLineAppPanel extends HTMLElement {
     this._ensureScrollBoundaryGuard();
     this._canvas = this.$(".canvas");
     this._stack = this.$(".view-stack");
-    this._zoom = new ZoomController(this._viewport, this._canvas, "starline.panel.canvas.v1.default");
+    this._zoom = new ZoomController(this._viewport, this._canvas, "starline.panel.canvas.v1.default", () => this._finishHold());
     this.$(".menu").addEventListener("click", (event) => {
       event.currentTarget.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }));
     });
@@ -729,7 +748,7 @@ class StarLineAppPanel extends HTMLElement {
         color: var(--primary-text-color); background: var(--surface);
         border: 1px solid var(--border); border-radius: 9px; font-size: 12px;
       }
-      .vehicle-selector{z-index:9;height:52px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:4px max(12px,env(safe-area-inset-right,0px));background:var(--surface);border-bottom:1px solid var(--border)}
+      .vehicle-selector{z-index:9;height:52px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:4px calc(12px + env(safe-area-inset-right,0px)) 4px calc(12px + env(safe-area-inset-left,0px));background:transparent}
       .vehicle-selector button{height:44px;min-height:44px;border:1px solid var(--border);border-radius:15px;background:var(--surface);color:var(--primary-text-color);display:flex;align-items:center;gap:10px;padding:0 14px;text-align:left;font-size:14px;font-weight:800}
       .vehicle-selector button::before {
         content: ""; flex: 0 0 9px; height: 9px; border-radius: 50%;
@@ -815,8 +834,8 @@ class StarLineAppPanel extends HTMLElement {
       .fuel-calibration{display:grid;gap:8px;margin:12px 0;padding:12px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}
       .fuel-calibration p{margin:0;font-size:13px;line-height:1.35;overflow-wrap:anywhere}.fuel-calibration .fuel-message{color:var(--muted)}.fuel-calibration [hidden]{display:none}
       .fuel-calibration button,.fuel-link{min-height:44px;padding:5px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface);color:var(--primary-text-color);text-align:center}.fuel-calibration button:disabled{opacity:.65}.fuel-link{color:var(--accent);margin-top:4px}
-      .fuel-receipt summary{display:flex;align-items:center;min-height:44px;color:var(--accent);cursor:pointer;font-weight:700}.fuel-form,.fuel-form fieldset{display:grid;gap:8px}.fuel-form fieldset{border:0;margin:0;padding:0;min-width:0}.fuel-form label{display:grid;gap:4px;color:var(--muted);font-size:13px}.fuel-form input{width:100%;min-height:44px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--primary-text-color);font:inherit;font-size:16px}.fuel-form-actions{display:flex;flex-wrap:wrap;gap:6px}
-      .view-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 2px 12px}.view-head strong{display:block;font-size:21px;line-height:1.05}.view-head span{display:block;margin-top:5px;color:var(--muted);font-size:13px}.view-head button{width:44px;height:44px;border:1px solid var(--border);border-radius:15px;background:var(--surface);color:var(--accent);display:grid;place-items:center}.history-day{margin-bottom:14px}.day-chip{display:inline-flex;margin:0 0 7px 5px;padding:5px 9px;border-radius:10px;background:color-mix(in srgb,var(--accent) 11%,var(--surface));font-size:16px;font-weight:800}.history-row{width:100%;min-height:62px;border:0;border-bottom:1px solid var(--border);background:var(--surface);color:var(--primary-text-color);display:grid;grid-template-columns:76px minmax(0,1fr);align-items:center;padding:8px 13px;text-align:left}.history-row:first-of-type{border-radius:16px 16px 0 0}.history-row:last-child{border-bottom:0;border-radius:0 0 16px 16px}.history-row time{color:var(--muted);font-size:16px}.history-row strong{font-size:18px;line-height:1.15}.source-note{margin:0 0 10px;padding:9px 12px;border-radius:13px;background:color-mix(in srgb,var(--accent) 7%,var(--surface));color:var(--muted);font-size:12px}
+      .fuel-receipt summary{display:flex;align-items:center;min-height:44px;color:var(--accent);cursor:pointer;font-weight:700}.fuel-form,.fuel-form fieldset{display:grid;gap:8px}.fuel-form fieldset{border:0;margin:0;padding:0;min-width:0}.fuel-form label{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;color:var(--muted);font-size:13px}.fuel-form input{display:block;min-inline-size:0;inline-size:100%;max-inline-size:100%;min-height:44px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--primary-text-color);font:inherit;font-size:16px}.fuel-form input:is([type="date"],[type="time"]){appearance:none;-webkit-appearance:none}.fuel-form input::-webkit-date-and-time-value{min-inline-size:0;text-align:start}.fuel-form-actions{display:flex;flex-wrap:wrap;gap:6px}
+      .view-head{margin:4px 2px 12px}.view-head strong{display:block;font-size:21px;line-height:1.05}.view-head span{display:block;margin-top:5px;color:var(--muted);font-size:13px}.history-day{margin-bottom:14px}.day-chip{display:inline-flex;margin:0 0 7px 5px;padding:5px 9px;border-radius:10px;background:color-mix(in srgb,var(--accent) 11%,var(--surface));font-size:16px;font-weight:800}.history-row{width:100%;min-height:62px;border:0;border-bottom:1px solid var(--border);background:var(--surface);color:var(--primary-text-color);display:grid;grid-template-columns:76px minmax(0,1fr);align-items:center;padding:8px 13px;text-align:left}.history-row:first-of-type{border-radius:16px 16px 0 0}.history-row:last-child{border-bottom:0;border-radius:0 0 16px 16px}.history-row time{color:var(--muted);font-size:16px}.history-row strong{font-size:18px;line-height:1.15}.source-note{margin:0 0 10px;padding:9px 12px;border-radius:13px;background:color-mix(in srgb,var(--accent) 7%,var(--surface));color:var(--muted);font-size:12px}
       .trip-list{display:grid;gap:10px}.trip-card{overflow:hidden;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.trip-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px}.trip-meta strong{font-size:19px}.trip-meta span{display:block;margin-top:4px;color:var(--muted);font-size:12px}.trip-times{display:flex;align-items:center;gap:5px}.trip-times ha-icon{--mdc-icon-size:18px;color:var(--accent)}.route-svg{display:block;width:100%;height:128px;color:var(--accent);background:color-mix(in srgb,var(--accent) 4%,var(--surface))}.route-svg text{fill:white;font-size:5px;font-weight:800}.route-marker{fill:var(--accent)}.trip-foot{display:flex;justify-content:space-between;padding:8px 12px;color:var(--muted);font-size:12px}.map-host{min-height:230px;margin-bottom:12px;overflow:hidden;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.map-host>*{display:block;width:100%;height:100%}
       .diagnostic-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.diag-tile{min-height:74px;padding:11px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}.diag-tile span{display:block;color:var(--muted);font-size:12px}.diag-tile strong{display:block;margin-top:7px;font-size:15px;overflow-wrap:anywhere}.diag-tile.ok strong{color:var(--ok)}.diag-tile.warn strong{color:var(--warn)}.diag-tile.danger strong{color:var(--danger)}.read-only-banner{display:grid;grid-template-columns:30px minmax(0,1fr);gap:9px;margin-top:10px;padding:12px;border-radius:16px;background:color-mix(in srgb,var(--accent) 9%,var(--surface))}.read-only-banner ha-icon{color:var(--accent)}.read-only-banner strong{font-size:15px}.read-only-banner span{display:block;margin-top:4px;color:var(--muted);font-size:12px;line-height:1.3}.diag-list{margin-top:10px;overflow:hidden;border:1px solid var(--border);border-radius:16px}.diag-entity{min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 11px;border-bottom:1px solid var(--border);background:var(--surface)}.diag-entity:last-child{border-bottom:0}.diag-entity strong{font-size:13px}.diag-entity span{display:block;margin-top:3px;color:var(--muted);font-size:12px;overflow-wrap:anywhere}.diag-state{text-align:right}.diag-state button{width:34px;height:34px;border:0;background:transparent;color:var(--accent)}
       .empty-state{min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;color:var(--muted)}.empty-state ha-icon{--mdc-icon-size:44px;color:var(--accent)}.empty-state strong{color:var(--primary-text-color);font-size:18px}.empty-state span{max-width:420px;font-size:13px;line-height:1.35}.empty-state button{min-height:44px;padding:0 16px;border:0;border-radius:14px;background:var(--accent);color:white;font-weight:800}
@@ -1231,7 +1250,7 @@ class StarLineAppPanel extends HTMLElement {
   _mountAsyncView(pane, view) {
     const title = view === "history" ? "История" : "Поездки";
     const subtitle = view === "history" ? "События StarLine · 24 часа" : "Маршруты по GPS · 72 часа";
-    pane.innerHTML = `<div class="view-head"><div><strong>${title}</strong><span>${subtitle}</span></div><button type="button" data-refresh-history="1" aria-label="Обновить"><ha-icon icon="mdi:refresh"></ha-icon></button></div><div class="async-content"><div class="empty-state"><ha-icon icon="mdi:cloud-download-outline"></ha-icon><strong>Данные ещё не загружены</strong></div></div>`;
+    pane.innerHTML = `<div class="view-head"><div><strong>${title}</strong><span>${subtitle}</span></div></div><div class="async-content"><div class="empty-state"><ha-icon icon="mdi:cloud-download-outline"></ha-icon><strong>Данные ещё не загружены</strong></div></div>`;
   }
 
   _mountDiagnostics(pane, vehicle) {

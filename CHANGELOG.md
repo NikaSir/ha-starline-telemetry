@@ -1,8 +1,13 @@
 # Changelog
 
-Current branch version is [`0.7.0-beta008`](custom_components/starline_telemetry/manifest.json).
+Current branch version is [`0.7.0-beta009`](custom_components/starline_telemetry/manifest.json).
 
 Existing version-specific notes remain under [`docs/`](docs/) and earlier project history remains in Git history; neither is reconstructed here.
+
+## 0.7.0-beta009
+
+- Restore the two-finger double tap reset to 100% and center reduced content.
+- Keep the refresh action in the header, align the vehicle selector with the panel background, and contain receipt date and time fields on mobile.
 
 ## 0.7.0-beta008
 
