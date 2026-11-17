@@ -435,7 +435,7 @@ class StarLineAppPanel extends HTMLElement {
         border-radius: 18px; background: var(--surface);
       }
       .summary-hero {
-        min-width: 0; display: grid; grid-template-columns: minmax(0, 9fr) minmax(0, 11fr);
+        min-width: 0; display: grid; grid-template-columns: minmax(min-content, 9fr) minmax(0, 11fr);
         align-items: center; gap: 5px; padding: 4px 7px 4px 10px; border-radius: 12px;
         background: linear-gradient(100deg, var(--surface), color-mix(in srgb, var(--accent) 11%, var(--surface)));
       }
@@ -444,7 +444,7 @@ class StarLineAppPanel extends HTMLElement {
       .identity-heading {
         display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px;
       }
-      .identity-heading strong { font-size: 19px; font-weight: 800; line-height: 1.15; }
+      .identity-heading strong { font-size: 19px; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
       .vehicle-indicators { display: inline-flex; align-items: center; gap: 3px; flex: none; }
       .vehicle-indicators ha-icon { display: block; width: 15px; height: 15px; --mdc-icon-size: 15px; }
       .vehicle-indicators [data-tone="good"] { color: var(--indicator-good, #237d43); }
@@ -477,6 +477,10 @@ class StarLineAppPanel extends HTMLElement {
       .fuel-consumption strong { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 0 3px; }
       .consumption-value, .consumption-unit { white-space: nowrap; }
       .consumption-unit { color: var(--muted); font-size: 12px; font-weight: 500; }
+      @container starline-card (min-width: 346px) {
+        .summary-hero[data-portrait]:not([data-portrait=""]) .identity-heading { flex-wrap: nowrap; }
+        .summary-hero[data-portrait]:not([data-portrait=""]) .identity-heading strong { white-space: nowrap; }
+      }
       @container starline-card (max-width: 345px) {
         .metrics-secondary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .fuel-consumption { grid-column: 1 / -1; }
@@ -504,7 +508,7 @@ class StarLineAppPanel extends HTMLElement {
         .view.two-vehicles.active:not(:has(.vehicle-pane.active .summary-details[open])) .summary-card{display:flex;flex-direction:column;height:100%}
         .view.two-vehicles.active:not(:has(.vehicle-pane.active .summary-details[open])) :is(.summary-hero,.metrics){flex:1 0 auto}
       }
-      @media(min-width:700px){.vehicle-selector{max-width:1280px;width:100%;margin:auto;border:0}.view[data-view-pane="status"].active{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}}
+      @container nikas-panel (min-width:700px){.vehicle-selector{max-width:1280px;width:100%;margin:auto;border:0}.view[data-view-pane="status"].active{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}}
     `;
   }
 

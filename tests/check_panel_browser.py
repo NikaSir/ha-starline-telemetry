@@ -90,13 +90,16 @@ GEOMETRY = """() => {
     const value = get('.consumption-value', card);
     const unit = get('.consumption-unit', card);
     const heading = get('.identity-heading strong', card);
+    const icons = rect(get('.vehicle-indicators', card));
+    const name = rect(heading);
     return {
       top:rect(card).top, bottom:rect(card).bottom, engine:engine.textContent,
       engineLines:engineText.getClientRects().length,
-      engineClipped:engine.scrollWidth > engine.clientWidth + 1,
+      engineClipped:engine.parentElement.scrollWidth > engine.parentElement.clientWidth + 1,
       fuelInline:Math.abs(rect(value).bottom - rect(unit).bottom) < 5,
       fuelFits:reading.scrollWidth <= reading.clientWidth + 1,
-      iconsInline:Math.abs(rect(heading).top - rect(get('.vehicle-indicators', card)).top) < 6,
+      iconsInline:icons.left >= name.right - 1 && Math.abs((name.top + name.bottom - icons.top - icons.bottom) / 2) <= 1,
+      headingBox:[name.x, name.y, name.width, name.height], iconBox:[icons.x, icons.y, icons.width, icons.height],
       title:heading.textContent,
     };
   });
