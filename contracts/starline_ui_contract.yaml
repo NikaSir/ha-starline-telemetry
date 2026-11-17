@@ -1,5 +1,5 @@
 contract: starline_telemetry_dashboard
-version: "0.7.0-beta007"
+version: "0.7.0-beta008"
 ui_standard: 2.2
 mode: read_only
 repository_owner: NikaSir/ha-starline-telemetry
@@ -112,8 +112,10 @@ summary_screen:
       unavailable_scale: neutral_track
     perimeter: [door, hood, trunk]
     secondary_metrics: expandable_details
+    compact_indicators: [home_assistant_connection, fuel_and_battery_freshness]
     freshness:
       source: home_assistant_last_reported_then_last_updated
+      summary_report: oldest_valid_fuel_and_battery_report
       max_age_minutes: 30
       timestamp_timezone: Europe/Moscow
       states: [fresh, stale, unavailable]

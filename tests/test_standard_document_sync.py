@@ -8,7 +8,12 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-EXPECTED = {'standard': 'e150c4ce087635c0cbc25031a6ce1b8489ba0902da3745335af88457484963dc', 'navigation_contract': '04c81cb498de3bd9ac35b7e70ed8a90fa4376ed3a31bcedb1fe5cc3cb53e05a6'}
+EXPECTED = {
+    'standard': '39691a1e8ad5b98a961d518ab7b38761f3b04e7f7eb032dc19e3c68b4f249083',
+    'navigation_contract': '26269e700cffa7cc1b0a2f93ff6314ed3d366f988460168c312324511f282423',
+    'refresh_contract': 'c778927d0a94aa48c818916f49fc295a60f51d26367c3c85ecb9bf789ee463e2',
+    'shell_kit': '398d6ff9eb5b1fb11d771e174ae7b010908c276681b1ca14e9757073ee10bb1c',
+}
 
 class StandardDocumentSyncTests(unittest.TestCase):
     def test_production_documents_match_authority(self):

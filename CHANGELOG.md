@@ -1,8 +1,13 @@
 # Changelog
 
-Current branch version is [`0.7.0-beta007`](custom_components/starline_telemetry/manifest.json).
+Current branch version is [`0.7.0-beta008`](custom_components/starline_telemetry/manifest.json).
 
 Existing version-specific notes remain under [`docs/`](docs/) and earlier project history remains in Git history; neither is reconstructed here.
+
+## 0.7.0-beta008
+
+- Adopt the updated NikaS header with full UI and installed integration versions. Use theme-aware refresh colors and show the request result on the same button.
+- Add compact Home Assistant connection and fuel/battery freshness indicators to both car cards. Fit the ignition state and the average fuel consumption unit into the portrait summary.
 
 ## 0.7.0-beta007
 

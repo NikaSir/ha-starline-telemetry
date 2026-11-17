@@ -1,15 +1,29 @@
-const UI_VERSION = "0.7.0-beta007";
+const UI_VERSION = "0.7.0-beta008";
 const ASSET_BASE = "/starline_telemetry_static/assets";
 const EVENT_WINDOW_HOURS = 24;
 const TRIP_WINDOW_HOURS = 72;
 const VIEWS = ["status", "history", "trips", "diagnostics"];
 const WRITABLE_DOMAINS = new Set(["lock", "switch", "button"]);
 const UNRELIABLE_STATES = new Set(["", "none", "null", "unknown", "unavailable"]);
-const SOURCE_ROUTE_KEY = "nikas.specialized.source_route.v1";
-const SOURCE_ROUTE_AT_KEY = "nikas.specialized.source_route_at.v1";
-const RETURN_ROUTE_KEY = "nikas.starline.return_route.v1";
 const SAFE_DEFAULT_ROUTE = "/home/overview";
-const SOURCE_ROUTE_TTL_MS = 30_000;
+const REFRESH_BUSY_MS = 900;
+const REFRESH_RESULT_MS = 1400;
+const REFRESH_PRESENTATION = {
+  idle: { icon: "mdi:refresh", label: "Обновить" },
+  busy: { icon: "mdi:refresh", label: "Обновление данных" },
+  success: { icon: "mdi:check", label: "Запрос обновления выполнен" },
+  error: { icon: "mdi:alert-circle-outline", label: "Не удалось обновить данные" },
+};
+const CONNECTION_STATUS = {
+  connected: { icon: "mdi:cloud", tone: "good", label: "Связь с Home Assistant есть" },
+  disconnected: { icon: "mdi:cloud-off-outline", tone: "warn", label: "Связь с Home Assistant потеряна" },
+  unknown: { icon: "mdi:cloud-question-outline", tone: "muted", label: "Связь с Home Assistant неизвестна" },
+};
+const FRESHNESS_STATUS = {
+  fresh: { icon: "mdi:check-circle-outline", tone: "good", label: "Данные топлива и АКБ актуальны" },
+  stale: { icon: "mdi:clock-alert-outline", tone: "warn", label: "Данные топлива и АКБ устарели" },
+  unavailable: { icon: "mdi:clock-question-outline", tone: "muted", label: "Свежесть данных топлива и АКБ не подтверждена" },
+};
 const SECURITY_BOOTSTRAP_MAX_AGE_MS = 60_000;
 const FUEL_KEYS = ["fuel", "fuel_percent", "fuel_litres", "fuel_volume"];
 const HA_REPORT_MAX_AGE_MS = 30 * 60_000;
@@ -48,141 +62,6 @@ const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const midpoint = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 const domainOf = (entityId) => String(entityId || "").split(".", 1)[0];
-
-function canonicalBaseRoute(pathname) {
-  if (pathname === "/home/overview") return "/home/overview";
-  if (pathname === "/dashboard-house-v13" || pathname.startsWith("/dashboard-house-v13/")) {
-    return "/dashboard-house-v13/home";
-  }
-  if (pathname === "/dashboard-rooms-v11" || pathname.startsWith("/dashboard-rooms-v11/")) {
-    return "/dashboard-rooms-v11/rooms";
-  }
-  if (pathname === "/dashboard-actions" || pathname.startsWith("/dashboard-actions/")) {
-    return "/dashboard-actions/home";
-  }
-  if (pathname === "/dashboard-infrastructure" || pathname.startsWith("/dashboard-infrastructure/")) {
-    return "/dashboard-infrastructure/overview";
-  }
-  return null;
-}
-
-function safeBaseRoute(candidate) {
-  if (!candidate) return null;
-  try {
-    const url = new URL(decodeURIComponent(String(candidate).trim()), window.location.origin);
-    if (url.origin !== window.location.origin) return null;
-    return canonicalBaseRoute(url.pathname);
-  } catch (_err) {
-    return null;
-  }
-}
-
-function captureReturnRoute() {
-  return SAFE_DEFAULT_ROUTE;
-}
-
-function navigate(route) {
-  const safe = safeBaseRoute(route) || SAFE_DEFAULT_ROUTE;
-  history.pushState(null, "", safe);
-  window.dispatchEvent(new Event("location-changed"));
-}
-
-function openHomeAssistantMenu(target) {
-  target.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }));
-}
-
-const NIKAS_SHELL_BOUNDARY_THRESHOLD_PX = 4;
-
-function shouldBlockNikasShellBoundaryMove({
-  deltaX,
-  deltaY,
-  inViewport,
-  scrollTop,
-  scrollHeight,
-  clientHeight,
-}) {
-  if (!Number.isFinite(deltaY) || Math.abs(deltaY) <= Math.abs(Number(deltaX) || 0)) return false;
-  if (!inViewport) return true;
-  const maximumScroll = Math.max(0, (Number(scrollHeight) || 0) - (Number(clientHeight) || 0));
-  if (maximumScroll <= 1) return true;
-  const currentScroll = Math.max(0, Number(scrollTop) || 0);
-  if (deltaY > 0 && currentScroll <= 1) return true;
-  return deltaY < 0 && currentScroll >= maximumScroll - 1;
-}
-
-function createNikasShellScrollBoundaryGuard({ host, viewport }) {
-  if (!host?.addEventListener || !viewport) return () => {};
-  let touch = null;
-
-  const eventStartedInViewport = (event) => {
-    const path = typeof event.composedPath === "function" ? event.composedPath() : [];
-    return path.includes(viewport) || Boolean(viewport.contains?.(event.target));
-  };
-  const rememberTouch = (event) => {
-    if (event.touches.length !== 1) {
-      touch = null;
-      return;
-    }
-    const current = event.touches[0];
-    touch = {
-      x: current.clientX,
-      y: current.clientY,
-      startX: current.clientX,
-      startY: current.clientY,
-      inViewport: eventStartedInViewport(event),
-      blocked: false,
-    };
-  };
-  const moveTouch = (event) => {
-    if (event.touches.length !== 1) {
-      touch = null;
-      return;
-    }
-    const current = event.touches[0];
-    if (!touch) {
-      rememberTouch(event);
-      return;
-    }
-    const deltaX = current.clientX - touch.x;
-    const deltaY = current.clientY - touch.y;
-    const travelX = current.clientX - touch.startX;
-    const travelY = current.clientY - touch.startY;
-    touch.x = current.clientX;
-    touch.y = current.clientY;
-    const verticalIntent = Math.abs(travelY) > NIKAS_SHELL_BOUNDARY_THRESHOLD_PX
-      && Math.abs(travelY) > Math.abs(travelX);
-    if (!touch.blocked && verticalIntent) {
-      touch.blocked = shouldBlockNikasShellBoundaryMove({
-        deltaX,
-        deltaY,
-        inViewport: touch.inViewport,
-        scrollTop: viewport.scrollTop,
-        scrollHeight: viewport.scrollHeight,
-        clientHeight: viewport.clientHeight,
-      });
-    }
-    if (touch.blocked && event.cancelable) event.preventDefault();
-  };
-  const endTouch = (event) => {
-    if (event.touches.length === 1) rememberTouch(event);
-    else touch = null;
-  };
-  const cancelTouch = () => { touch = null; };
-
-  host.addEventListener("touchstart", rememberTouch, { passive: false, capture: true });
-  host.addEventListener("touchmove", moveTouch, { passive: false, capture: true });
-  host.addEventListener("touchend", endTouch, { passive: true, capture: true });
-  host.addEventListener("touchcancel", cancelTouch, { passive: true, capture: true });
-
-  return () => {
-    host.removeEventListener("touchstart", rememberTouch, true);
-    host.removeEventListener("touchmove", moveTouch, true);
-    host.removeEventListener("touchend", endTouch, true);
-    host.removeEventListener("touchcancel", cancelTouch, true);
-    touch = null;
-  };
-}
-
 
 class ZoomController {
   constructor(viewport, canvas, storageKey) {
@@ -230,7 +109,7 @@ class ZoomController {
     this.canvas.style.marginBottom = scale < 1
       ? `${Math.round((scale - 1) * Math.max(this.canvas.scrollHeight, this.canvas.offsetHeight))}px`
       : "0px";
-    this.viewport.classList.toggle("zoom-enlarged", scale > 1);
+    this.viewport.classList.toggle("zoomed", scale > 1);
     if (scale > 1 && this.viewport.scrollTop) this.viewport.scrollTop = 0;
     if (persist) localStorage.setItem(this.storageKey, JSON.stringify(this.state));
   }
@@ -384,7 +263,8 @@ class StarLineAppPanel extends HTMLElement {
     this._reports = {};
     this._reportLoading = false;
     this._freshnessTimer = null;
-    this._returnRoute = null;
+    this._refreshRequest = null;
+    this._refreshResultTimer = null;
     this._scrollBoundaryCleanup = null;
     this._boundLocation = () => this._readLocation();
     this._mountShell();
@@ -392,6 +272,8 @@ class StarLineAppPanel extends HTMLElement {
 
   set hass(value) {
     this._hass = value;
+    const darkMode = value?.themes?.darkMode ?? window.matchMedia("(prefers-color-scheme: dark)").matches;
+    this._setAttribute(this.$(".refresh"), "data-nikas-color-mode", darkMode ? "dark" : "light");
     for (const card of this._maps.values()) card.hass = value;
     if (this.isConnected && !this._bootstrap) this._loadBootstrap();
     this._queuePatch();
@@ -399,7 +281,7 @@ class StarLineAppPanel extends HTMLElement {
 
   set panel(value) {
     this._panel = value;
-    if (!this._returnRoute) this._returnRoute = captureReturnRoute(value?.config?.parent_route);
+    this._setText(this.shadowRoot, "#starline-versions", `UI v${UI_VERSION} / ${value?.config?.integration_version || "—"}`);
     if (this.isConnected && this._hass && !this._bootstrap) this._loadBootstrap();
   }
 
@@ -413,13 +295,16 @@ class StarLineAppPanel extends HTMLElement {
     }, 60_000);
     window.addEventListener("location-changed", this._boundLocation);
     window.addEventListener("popstate", this._boundLocation);
-    if (!this._returnRoute) this._returnRoute = captureReturnRoute(this._panel?.config?.parent_route);
     if (this._hass && !this._bootstrap) this._loadBootstrap();
   }
 
   disconnectedCallback() {
     clearInterval(this._freshnessTimer);
     this._freshnessTimer = null;
+    clearTimeout(this._refreshResultTimer);
+    this._refreshResultTimer = null;
+    this._refreshRequest = null;
+    this._setRefreshState("idle");
     window.removeEventListener("location-changed", this._boundLocation);
     window.removeEventListener("popstate", this._boundLocation);
     this._scrollBoundaryCleanup?.();
@@ -435,20 +320,27 @@ class StarLineAppPanel extends HTMLElement {
   }
 
   _mountShell() {
-    this.shadowRoot.innerHTML = `<style>${this._styles()}</style>
-      <div class="app">
-        <header class="app-header">
-          <button class="header-control menu" aria-label="Открыть меню"><ha-icon icon="mdi:menu"></ha-icon></button>
-          <button class="title-button" aria-label="Вернуться на главную панель"><strong>StarLine</strong><span>UI v${UI_VERSION}</span></button>
-          <button class="header-control refresh" aria-label="Обновить"><ha-icon icon="mdi:refresh"></ha-icon></button>
+    this.shadowRoot.innerHTML = `<style>${nikasShellV2Styles()}${this._styles()}</style>
+      <div class="app nikas-shell">
+        <header class="app-header nikas-shell__header">
+          <button class="menu nikas-shell__side-action" type="button" aria-label="Открыть меню"><ha-icon icon="mdi:menu"></ha-icon></button>
+          <button class="title-button nikas-shell__title" type="button" aria-label="StarLine. Вернуться на главную панель" aria-describedby="starline-versions">
+            <strong>StarLine</strong><small id="starline-versions">UI v${UI_VERSION} / —</small>
+          </button>
+          <button class="refresh nikas-shell__side-action nikas-shell__side-action--right nikas-shell__side-action--refresh" type="button" aria-label="Обновить">
+            <ha-icon icon="mdi:refresh"></ha-icon>
+          </button>
+          <div class="refresh-feedback" role="status"></div>
         </header>
-        <div class="vehicle-selector" role="tablist" aria-label="Автомобили"></div>
-        <main class="viewport"><div class="canvas"><div class="view-stack"></div></div></main>
-        <nav class="bottom-nav" aria-label="Разделы">
-          <button data-view="status"><ha-icon icon="mdi:car-multiple"></ha-icon><span>Сводка</span></button>
-          <button data-view="history"><ha-icon icon="mdi:timeline-clock-outline"></ha-icon><span>История</span></button>
-          <button data-view="trips"><ha-icon icon="mdi:map-marker-path"></ha-icon><span>Поездки</span></button>
-          <button data-view="diagnostics"><ha-icon icon="mdi:stethoscope"></ha-icon><span>Диагностика</span></button>
+        <div class="vehicle-selector nikas-shell__peer" role="tablist" aria-label="Автомобили" hidden></div>
+        <main class="viewport nikas-shell__viewport">
+          <div class="canvas nikas-shell__canvas"><div class="view-stack nikas-shell__content"></div></div>
+        </main>
+        <nav class="bottom-nav nikas-shell__tabs" aria-label="Разделы">
+          <button class="nikas-shell__tab" type="button" data-view="status"><ha-icon icon="mdi:car-multiple"></ha-icon><small>Сводка</small></button>
+          <button class="nikas-shell__tab" type="button" data-view="history"><ha-icon icon="mdi:timeline-clock-outline"></ha-icon><small>История</small></button>
+          <button class="nikas-shell__tab" type="button" data-view="trips"><ha-icon icon="mdi:map-marker-path"></ha-icon><small>Поездки</small></button>
+          <button class="nikas-shell__tab" type="button" data-view="diagnostics"><ha-icon icon="mdi:stethoscope"></ha-icon><small>Диагностика</small></button>
         </nav>
         <div class="zoom-feedback" hidden>Масштаб 100%</div>
       </div>`;
@@ -459,8 +351,10 @@ class StarLineAppPanel extends HTMLElement {
     this._canvas = this.$(".canvas");
     this._stack = this.$(".view-stack");
     this._zoom = new ZoomController(this._viewport, this._canvas, "starline.panel.canvas.v1.default");
-    this.$(".menu").addEventListener("click", (event) => openHomeAssistantMenu(event.currentTarget));
-    this.$(".title-button").addEventListener("click", () => navigate(SAFE_DEFAULT_ROUTE));
+    this.$(".menu").addEventListener("click", (event) => {
+      event.currentTarget.dispatchEvent(new CustomEvent("hass-toggle-menu", { bubbles: true, composed: true }));
+    });
+    this.$(".title-button").addEventListener("click", () => navigateNikasShell(SAFE_DEFAULT_ROUTE));
     this.$(".refresh").addEventListener("click", () => this._refresh());
     this.$(".vehicle-selector").addEventListener("click", (event) => {
       const button = event.target.closest("button[data-vehicle]");
@@ -488,31 +382,103 @@ class StarLineAppPanel extends HTMLElement {
 
   _styles() {
     return `
-      :host{position:relative;display:block;inline-size:100%;block-size:100%;min-block-size:0;overflow:hidden;color:var(--primary-text-color);background:var(--primary-background-color);font-family:var(--ha-card-header-font-family,var(--paper-font-body1_-_font-family,system-ui,sans-serif));--surface:var(--ha-card-background,var(--card-background-color,#fff));--border:color-mix(in srgb,var(--primary-text-color) 11%,transparent);--muted:var(--secondary-text-color,#686868);--accent:#079fc5;--blue:#0875b5;--ok:#43a047;--warn:#ef8b16;--danger:#df3434}
-      *{box-sizing:border-box}button{font:inherit;-webkit-tap-highlight-color:transparent}.app{block-size:100%;min-block-size:0;display:grid;grid-template-rows:calc(60px + env(safe-area-inset-top,0px)) 52px minmax(0,1fr) calc(64px + env(safe-area-inset-bottom,0px));overflow:hidden;overscroll-behavior:none}
-      .app.overview{grid-template-rows:calc(60px + env(safe-area-inset-top,0px)) minmax(0,1fr) calc(64px + env(safe-area-inset-bottom,0px))}.vehicle-selector[hidden],.vehicle-selector [hidden],.empty-state[hidden]{display:none}
-      .app-header{z-index:10;height:100%;display:grid;grid-template-columns:52px minmax(0,1fr) 52px;align-items:center;padding:env(safe-area-inset-top,0px) max(12px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));background:var(--surface);border-bottom:1px solid var(--border)}
-      .header-control{width:44px;height:44px;border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--primary-text-color);display:grid;place-items:center;box-shadow:0 3px 12px #00000012}.header-control:last-child{justify-self:end;color:var(--accent)}.header-control ha-icon{--mdc-icon-size:25px}
-      .title-button{justify-self:center;width:min(360px,100%);max-width:100%;height:52px;min-height:52px;border:1px solid color-mix(in srgb,var(--primary-color,#03a9d9) 24%,var(--divider-color,#dfe3e8));border-radius:16px;background:color-mix(in srgb,var(--primary-color,#03a9d9) 5%,var(--card-background-color,#fff));color:var(--primary-text-color);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px 14px;box-shadow:0 5px 16px rgba(23,45,76,.06);cursor:pointer}.title-button:focus-visible{outline:2px solid var(--primary-color,#03a9d9);outline-offset:2px}.title-button:active{transform:scale(.985);background:color-mix(in srgb,var(--primary-color,#03a9d9) 13%,var(--card-background-color,#fff));border-color:color-mix(in srgb,var(--primary-color,#03a9d9) 42%,var(--divider-color,#dfe3e8));box-shadow:0 2px 7px rgba(23,45,76,.05)}.title-button strong{font-size:23px;line-height:1.05;font-weight:800}.title-button span{margin-top:3px;color:var(--muted);font-size:14px;line-height:1.2;font-weight:560;letter-spacing:.01em}
+      :host {
+        font-family: var(--ha-card-header-font-family, var(--paper-font-body1_-_font-family, system-ui, sans-serif));
+        --surface: var(--ha-card-background, var(--card-background-color, #fff));
+        --border: color-mix(in srgb, var(--primary-text-color) 11%, transparent);
+        --muted: var(--secondary-text-color, #686868);
+        --accent: #079fc5;
+        --blue: #0875b5;
+        --ok: #43a047;
+        --warn: #ef8b16;
+        --danger: #df3434;
+      }
+      .refresh[data-refresh-state="busy"] { opacity: 1; }
+      .refresh[data-refresh-state="busy"] ha-icon { animation: rotate-refresh 900ms linear infinite; }
+      .refresh[data-refresh-state="success"] ha-icon { color: #43a047; }
+      .refresh[data-refresh-state="error"] ha-icon { color: #e53935; }
+      @keyframes rotate-refresh { to { transform: rotate(360deg); } }
+      @media (prefers-reduced-motion: reduce) {
+        .refresh[data-refresh-state="busy"] ha-icon { animation: none; }
+        .refresh[data-refresh-state="busy"] { outline: 2px dashed currentColor; outline-offset: -4px; }
+      }
+      .refresh-feedback {
+        position: absolute; inline-size: 1px; block-size: 1px;
+        overflow: hidden; clip-path: inset(50%);
+      }
+      .refresh-feedback.error {
+        inset-block-start: 100%; inset-inline-end: 12px; inline-size: auto; block-size: auto;
+        max-inline-size: calc(100% - 24px); padding: 7px 10px; clip-path: none;
+        color: var(--primary-text-color); background: var(--surface);
+        border: 1px solid var(--border); border-radius: 9px; font-size: 12px;
+      }
       .vehicle-selector{z-index:9;height:52px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:4px max(12px,env(safe-area-inset-right,0px));background:var(--surface);border-bottom:1px solid var(--border)}
-      .vehicle-selector button{height:44px;min-height:44px;border:1px solid var(--border);border-radius:15px;background:var(--surface);color:var(--primary-text-color);display:flex;align-items:center;gap:10px;padding:0 14px;text-align:left;font-size:14px;font-weight:800}.vehicle-selector button::before{content:"";width:9px;height:9px;border-radius:50%;background:var(--ok)}.vehicle-selector button.offline::before{background:var(--danger)}.vehicle-selector button.active{border-color:color-mix(in srgb,var(--accent) 65%,transparent);background:color-mix(in srgb,var(--accent) 10%,var(--surface));color:var(--accent)}
-      .viewport{min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:none;touch-action:pan-y;background:var(--primary-background-color);scrollbar-width:none}.viewport::-webkit-scrollbar{display:none}.viewport.zoom-enlarged{overflow:hidden;touch-action:none}.canvas{width:100%;height:100%;min-height:100%;transform-origin:0 0;will-change:transform}.view-stack{width:100%;max-width:1280px;height:100%;min-height:100%;margin:0 auto;padding:9px max(10px,env(safe-area-inset-right)) 14px max(10px,env(safe-area-inset-left))}.view{display:none;height:100%}.view.active{display:block}.vehicle-pane{display:none;height:100%}.vehicle-pane.active{display:block}
-      .bottom-nav{z-index:10;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:6px max(6px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px));background:var(--surface);border-top:1px solid var(--border)}.bottom-nav button{min-width:0;height:52px;min-height:52px;border:0;border-radius:15px;background:transparent;color:var(--muted);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}.bottom-nav ha-icon{--mdc-icon-size:26px}.bottom-nav span{max-width:100%;overflow:hidden;text-overflow:ellipsis;font-size:12px;line-height:14px;font-weight:700;white-space:nowrap}.bottom-nav button.active{color:var(--accent);background:color-mix(in srgb,var(--accent) 11%,var(--surface))}
+      .vehicle-selector button{height:44px;min-height:44px;border:1px solid var(--border);border-radius:15px;background:var(--surface);color:var(--primary-text-color);display:flex;align-items:center;gap:10px;padding:0 14px;text-align:left;font-size:14px;font-weight:800}
+      .vehicle-selector button::before {
+        content: ""; flex: 0 0 9px; height: 9px; border-radius: 50%;
+        background: var(--lamp-color, var(--muted));
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--lamp-color, var(--muted)) 22%, transparent);
+      }
+      .vehicle-selector button[data-tone="good"] { --lamp-color: var(--ok); }
+      .vehicle-selector button[data-tone="warn"] { --lamp-color: var(--warn); }
+      .vehicle-selector button[data-tone="danger"] { --lamp-color: var(--danger); }
+      .vehicle-selector button.active{border-color:color-mix(in srgb,var(--accent) 65%,transparent);background:color-mix(in srgb,var(--accent) 10%,var(--surface));color:var(--accent)}
+      .viewport{scrollbar-width:none}.viewport::-webkit-scrollbar{display:none}
+      .canvas{height:100%;will-change:transform}.view-stack{height:100%}
+      .view{display:none;height:100%}.view.active{display:block}.vehicle-pane{display:none;height:100%}.vehicle-pane.active{display:block}
       .zoom-feedback{position:fixed;z-index:40;left:50%;bottom:calc(82px + env(safe-area-inset-bottom));transform:translateX(-50%);padding:9px 14px;border-radius:16px;background:#202124e8;color:white;font-size:13px;font-weight:750}
       .view[data-view-pane="status"].active{display:grid;align-content:start;gap:10px;height:auto}
       .view[data-view-pane="status"] .vehicle-pane{height:auto;min-width:0}
-      .summary-card{min-width:0;padding:9px;border:1px solid var(--border);border-radius:18px;background:var(--surface)}
-      .summary-hero{min-width:0;display:grid;grid-template-columns:minmax(116px,1fr) minmax(0,1.7fr);align-items:center;gap:5px;padding:4px 7px 4px 10px;border-radius:12px;background:linear-gradient(100deg,var(--surface),color-mix(in srgb,var(--accent) 11%,var(--surface)))}
+      .summary-card {
+        container: starline-card / inline-size;
+        min-width: 0; padding: 9px; border: 1px solid var(--border);
+        border-radius: 18px; background: var(--surface);
+      }
+      .summary-hero {
+        min-width: 0; display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+        align-items: center; gap: 5px; padding: 4px 7px 4px 10px; border-radius: 12px;
+        background: linear-gradient(100deg, var(--surface), color-mix(in srgb, var(--accent) 11%, var(--surface)));
+      }
       .summary-hero[data-portrait="683"]{background:linear-gradient(100deg,var(--surface),color-mix(in srgb,var(--secondary-text-color,#686868) 16%,var(--surface)))}
-      .identity{min-width:0}.identity strong{display:block;overflow-wrap:anywhere;font-size:21px;font-weight:850;line-height:1.12}
-      .identity small{display:block;margin-top:4px;color:var(--muted);font-size:12px;line-height:1.2}
+      .identity { min-width: 0; }
+      .identity-heading {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px;
+      }
+      .identity-heading strong { font-size: 19px; font-weight: 800; line-height: 1.15; }
+      .vehicle-indicators { display: inline-flex; align-items: center; gap: 3px; flex: none; }
+      .vehicle-indicators ha-icon { display: block; width: 15px; height: 15px; --mdc-icon-size: 15px; }
+      .vehicle-indicators [data-tone="good"] { color: var(--indicator-good, #237d43); }
+      .vehicle-indicators [data-tone="warn"] { color: var(--indicator-warn, #ab5000); }
+      .vehicle-indicators [data-tone="muted"] { color: var(--muted); }
+      .app:has(.refresh[data-nikas-color-mode="dark"]) {
+        --indicator-good: #57bb72;
+        --indicator-warn: #f6a24d;
+      }
+      .identity small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.2; }
       .summary-car{display:block;justify-self:end;width:100%;height:clamp(76px,24vw,104px);object-fit:contain;object-position:right center}
-      .summary-car[hidden]{display:none}.summary-card.offline .summary-car{filter:grayscale(.55) saturate(.58)}
+      .summary-card.offline .summary-car{filter:grayscale(.55) saturate(.58)}
       .metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;margin-top:6px}
       .metrics>.metric{grid-column:span 2}.metrics>.metric:nth-child(-n+2){grid-column:span 3}
-      .metric{min-width:0;min-height:49px;display:grid;grid-template-rows:auto auto;align-content:center;justify-items:stretch;gap:3px;padding:4px;border:1px solid var(--border);border-radius:11px;background:color-mix(in srgb,var(--accent) 4%,var(--surface));color:var(--primary-text-color);text-align:center}
-      .metric>span{display:block;color:var(--primary-text-color);font-size:12px;line-height:1.15;font-weight:750;text-align:center;overflow-wrap:anywhere}
-      .metric-reading{min-width:0;display:flex;align-items:center;justify-content:center;gap:5px}.metric ha-icon{flex:0 0 auto;color:var(--blue);--mdc-icon-size:19px}.metric strong{display:block;margin:0;font-size:16px;line-height:1.1;font-weight:820;overflow-wrap:anywhere}
+      .metric {
+        min-width: 0; min-height: 49px; display: grid; grid-template-rows: auto 1fr;
+        gap: 3px; padding: 5px 3px; border: 1px solid var(--border); border-radius: 11px;
+        background: color-mix(in srgb, var(--accent) 4%, var(--surface));
+        color: var(--primary-text-color); text-align: center;
+      }
+      .metric>span{display:block;color:var(--primary-text-color);font-size:12px;line-height:1.15;font-weight:750;text-align:center}
+      .metric-reading{min-width:0;display:flex;align-items:center;justify-content:center;gap:4px}
+      .metric ha-icon { flex: 0 0 auto; color: var(--blue); --mdc-icon-size: 18px; }
+      .metric strong { display: block; margin: 0; font-size: 15px; line-height: 1.15; font-weight: 760; }
+      .metrics>.metric:nth-child(n+3) strong { font-size: 14px; }
+      .metrics>.metric:nth-child(n+3) ha-icon { --mdc-icon-size: 15px; }
+      .fuel-consumption strong { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 0 3px; }
+      .consumption-value, .consumption-unit { white-space: nowrap; }
+      .consumption-unit { color: var(--muted); font-size: 12px; font-weight: 500; }
+      @container starline-card (max-width: 345px) {
+        .metrics>.metric:nth-child(n+4) { grid-column: span 3; }
+        .metrics>.fuel-consumption { grid-column: span 6; }
+        .identity-heading strong { font-size: 18px; }
+      }
       .metric-gauge{height:5px;margin:0 12px;border-radius:3px;background:var(--border);position:relative}
       .metric-gauge[data-type="percent"]::after{content:"";position:absolute;inset:0 auto 0 0;width:calc(var(--level) * 1%);border-radius:inherit;background:hsl(calc(var(--level) * 1.15deg) 62% 55%)}
       .metric-gauge[data-type="voltage"]{background:linear-gradient(to right,#e05353 0%,#ee8c42 30%,#dfc657 60%,#58bb70 80%,#58bb70 100%)}
@@ -529,13 +495,12 @@ class StarLineAppPanel extends HTMLElement {
       .view-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 2px 12px}.view-head strong{display:block;font-size:21px;line-height:1.05}.view-head span{display:block;margin-top:5px;color:var(--muted);font-size:13px}.view-head button{width:44px;height:44px;border:1px solid var(--border);border-radius:15px;background:var(--surface);color:var(--accent);display:grid;place-items:center}.history-day{margin-bottom:14px}.day-chip{display:inline-flex;margin:0 0 7px 5px;padding:5px 9px;border-radius:10px;background:color-mix(in srgb,var(--accent) 11%,var(--surface));font-size:16px;font-weight:800}.history-row{width:100%;min-height:62px;border:0;border-bottom:1px solid var(--border);background:var(--surface);color:var(--primary-text-color);display:grid;grid-template-columns:76px minmax(0,1fr);align-items:center;padding:8px 13px;text-align:left}.history-row:first-of-type{border-radius:16px 16px 0 0}.history-row:last-child{border-bottom:0;border-radius:0 0 16px 16px}.history-row time{color:var(--muted);font-size:16px}.history-row strong{font-size:18px;line-height:1.15}.source-note{margin:0 0 10px;padding:9px 12px;border-radius:13px;background:color-mix(in srgb,var(--accent) 7%,var(--surface));color:var(--muted);font-size:12px}
       .trip-list{display:grid;gap:10px}.trip-card{overflow:hidden;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.trip-meta{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px}.trip-meta strong{font-size:19px}.trip-meta span{display:block;margin-top:4px;color:var(--muted);font-size:12px}.trip-times{display:flex;align-items:center;gap:5px}.trip-times ha-icon{--mdc-icon-size:18px;color:var(--accent)}.route-svg{display:block;width:100%;height:128px;color:var(--accent);background:color-mix(in srgb,var(--accent) 4%,var(--surface))}.route-svg text{fill:white;font-size:5px;font-weight:800}.route-marker{fill:var(--accent)}.trip-foot{display:flex;justify-content:space-between;padding:8px 12px;color:var(--muted);font-size:12px}.map-host{min-height:230px;margin-bottom:12px;overflow:hidden;border:1px solid var(--border);border-radius:18px;background:var(--surface)}.map-host>*{display:block;width:100%;height:100%}
       .diagnostic-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.diag-tile{min-height:74px;padding:11px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}.diag-tile span{display:block;color:var(--muted);font-size:12px}.diag-tile strong{display:block;margin-top:7px;font-size:15px;overflow-wrap:anywhere}.diag-tile.ok strong{color:var(--ok)}.diag-tile.warn strong{color:var(--warn)}.diag-tile.danger strong{color:var(--danger)}.read-only-banner{display:grid;grid-template-columns:30px minmax(0,1fr);gap:9px;margin-top:10px;padding:12px;border-radius:16px;background:color-mix(in srgb,var(--accent) 9%,var(--surface))}.read-only-banner ha-icon{color:var(--accent)}.read-only-banner strong{font-size:15px}.read-only-banner span{display:block;margin-top:4px;color:var(--muted);font-size:12px;line-height:1.3}.diag-list{margin-top:10px;overflow:hidden;border:1px solid var(--border);border-radius:16px}.diag-entity{min-height:58px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 11px;border-bottom:1px solid var(--border);background:var(--surface)}.diag-entity:last-child{border-bottom:0}.diag-entity strong{font-size:13px}.diag-entity span{display:block;margin-top:3px;color:var(--muted);font-size:12px;overflow-wrap:anywhere}.diag-state{text-align:right}.diag-state button{width:34px;height:34px;border:0;background:transparent;color:var(--accent)}
-      .empty-state{min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;color:var(--muted)}.empty-state ha-icon{--mdc-icon-size:44px;color:var(--accent)}.empty-state strong{color:var(--primary-text-color);font-size:18px}.empty-state span{max-width:420px;font-size:13px;line-height:1.35}.empty-state button{min-height:44px;padding:0 16px;border:0;border-radius:14px;background:var(--accent);color:white;font-weight:800}.spin{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+      .empty-state{min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;color:var(--muted)}.empty-state ha-icon{--mdc-icon-size:44px;color:var(--accent)}.empty-state strong{color:var(--primary-text-color);font-size:18px}.empty-state span{max-width:420px;font-size:13px;line-height:1.35}.empty-state button{min-height:44px;padding:0 16px;border:0;border-radius:14px;background:var(--accent);color:white;font-weight:800}
       @media(width < 700px) and (orientation:portrait){
         .view.two-vehicles.active:not(:has(.vehicle-pane.active .summary-details[open])){min-height:100%;grid-auto-rows:minmax(min-content,1fr);align-content:stretch}
         .view.two-vehicles.active:not(:has(.vehicle-pane.active .summary-details[open])) .summary-card{display:flex;flex-direction:column;height:100%}
         .view.two-vehicles.active:not(:has(.vehicle-pane.active .summary-details[open])) :is(.summary-hero,.metrics){flex:1 0 auto}
       }
-      @media(max-width:390px){.title-button{width:100%;padding-inline:8px}.title-button strong{font-size:21px}.title-button span{font-size:13px}.metric{gap:2px;padding:4px 3px}.metric-reading{gap:3px}.metric strong{font-size:14px}.identity strong{font-size:18px}}
       @media(min-width:700px){.vehicle-selector{max-width:1280px;width:100%;margin:auto;border:0}.view[data-view-pane="status"].active{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}}
     `;
   }
@@ -609,7 +574,17 @@ class StarLineAppPanel extends HTMLElement {
     return age >= 0 && age <= HA_REPORT_MAX_AGE_MS ? "fresh" : "stale";
   }
 
-  _online(vehicle) { return this._quality(this._latestUpdate(vehicle)) === "fresh"; }
+  _connectionStatus() {
+    const connected = this._hass?.connected;
+    return CONNECTION_STATUS[connected === true ? "connected" : connected === false ? "disconnected" : "unknown"];
+  }
+
+  _summaryFreshness(fuel, battery) {
+    const oldest = Math.min(fuel.timestamp, battery.timestamp);
+    if (fuel.quality === "unavailable" || battery.quality === "unavailable" ||
+        Math.max(fuel.timestamp, battery.timestamp) > Date.now()) return FRESHNESS_STATUS.unavailable;
+    return FRESHNESS_STATUS[this._quality(oldest)];
+  }
 
   _formatReport(timestamp) {
     return Number.isFinite(timestamp) ? `${MOSCOW_TIME.format(timestamp)} МСК` : "Нет времени обновления";
@@ -700,7 +675,7 @@ class StarLineAppPanel extends HTMLElement {
     const numeric = Number(entity?.state?.state);
     const metric = this._metricSpec(vehicle, ["battery"], "АКБ", "mdi:car-battery", unit === "%" ? 0 : 1);
     const valid = Number.isFinite(numeric) && (unit === "%" ? numeric >= 0 && numeric <= 100 : numeric > 0);
-    if (!valid && metric.value !== "Нет данных") return { ...metric, value: "Нет данных", tone: "muted", gauge: null };
+    if (!valid) return { ...metric, value: "Нет данных", quality: "unavailable", tone: "muted", gauge: null };
 
     let gauge = null;
     if (metric.value !== "Нет данных" && metric.value !== "Устарело") {
@@ -757,9 +732,14 @@ class StarLineAppPanel extends HTMLElement {
 
   _metricSpec(vehicle, keys, label, icon, digits = 0) {
     const entity = this._entity(vehicle, keys);
-    const quality = this._quality(this._reportedAt(entity?.state, entity?.entityId));
-    const raw = quality === "unavailable" ? "Нет данных" : this._formatState(entity, digits);
-    return { label, icon, entityId: entity?.entityId || "", value: raw === "Нет данных" ? raw : quality === "stale" ? "Устарело" : raw, tone: quality === "stale" ? "warn" : quality === "unavailable" ? "muted" : "" };
+    const timestamp = this._reportedAt(entity?.state, entity?.entityId);
+    const raw = this._formatState(entity, digits);
+    const quality = raw === "Нет данных" ? "unavailable" : this._quality(timestamp);
+    return {
+      label, icon, entityId: entity?.entityId || "", quality, timestamp,
+      value: quality === "unavailable" ? "Нет данных" : quality === "stale" ? "Устарело" : raw,
+      tone: quality === "stale" ? "warn" : quality === "unavailable" ? "muted" : "",
+    };
   }
 
   _stateSpec(entity, label, icon, onText, offText, activeTone = "warn") {
@@ -771,8 +751,16 @@ class StarLineAppPanel extends HTMLElement {
   }
 
   _setText(root, selector, value) { const node = this.$(selector, root); if (node && node.textContent !== String(value)) node.textContent = String(value); }
-  _setIcon(root, selector, value) { const node = this.$(selector, root); if (node && node.getAttribute("icon") !== value) node.setAttribute("icon", value); }
+  _setAttribute(node, name, value) { if (node && node.getAttribute(name) !== value) node.setAttribute(name, value); }
+  _setIcon(root, selector, value) { this._setAttribute(this.$(selector, root), "icon", value); }
   _setClass(node, name, enabled) { if (node) node.classList.toggle(name, Boolean(enabled)); }
+
+  _patchIndicator(node, spec) {
+    this._setAttribute(node, "data-tone", spec.tone);
+    this._setAttribute(node, "title", spec.label);
+    this._setAttribute(node, "aria-label", spec.label);
+    this._setIcon(node, "ha-icon", spec.icon);
+  }
 
   async _loadReportTimes() {
     if (!this._bootstrap || !this._hass || this._hass.connected === false ||
@@ -796,19 +784,19 @@ class StarLineAppPanel extends HTMLElement {
   }
 
   async _loadBootstrap(force = false) {
-    if (!this._hass || this._loading) return;
+    if (!this._hass || this._loading) return false;
     this._loading = true;
     this._queuePatch();
-    this.$(".refresh ha-icon")?.classList.add("spin");
+    let refreshed = false;
     try {
       const entryId = this._panel?.config?.entry_id;
       this._bootstrap = await this._hass.callWS({ type: "starline_telemetry/panel/bootstrap", force: Boolean(force), ...(entryId ? { entry_id: entryId } : {}) });
       if (this._bootstrap.reports) this._reports = this._bootstrap.reports;
+      refreshed = this._bootstrap.refresh_ok === true;
     } catch (_err) {
       this._bootstrap ??= this._panel?.config?.bootstrap_fallback || { vehicles: [] };
     } finally {
       this._loading = false;
-      this.$(".refresh ha-icon")?.classList.remove("spin");
     }
     const vehicles = this._orderedVehicles();
     if (!vehicles.some((item) => String(item.device_id) === String(this._vehicleId))) this._vehicleId = vehicles[0]?.device_id || null;
@@ -816,7 +804,8 @@ class StarLineAppPanel extends HTMLElement {
     this._mountVehicleSelector();
     this._ensureView(this._view);
     this._queuePatch();
-    if (["history", "trips"].includes(this._view)) this._ensureHistory();
+    if (!force && ["history", "trips"].includes(this._view)) this._ensureHistory();
+    return refreshed;
   }
 
   _mountVehicleSelector() {
@@ -880,14 +869,25 @@ class StarLineAppPanel extends HTMLElement {
     const image = portrait ? `<img class="summary-car" src="${ASSET_BASE}/starline-car-${portrait}-v2.webp?v=${UI_VERSION}" alt="" width="1866" height="843">` : "";
     pane.innerHTML = `<article class="summary-card">
       <div class="summary-hero" data-portrait="${portrait || ""}">
-        <div class="identity"><strong></strong><small class="connection-status"></small><small class="connection-time"></small></div>
+        <div class="identity">
+          <div class="identity-heading">
+            <strong></strong>
+            <div class="vehicle-indicators">
+              <span class="connection-icon" role="img"><ha-icon aria-hidden="true"></ha-icon></span>
+              <span class="freshness-icon" role="img"><ha-icon aria-hidden="true"></ha-icon></span>
+            </div>
+          </div>
+          <small class="connection-time" title="Последний отчёт Home Assistant"></small>
+        </div>
         ${image}
       </div>
       <div class="metrics">
         ${this._metricTiles(2, 2)}
         <div class="metric fuel-consumption">
           <span>Средний расход</span>
-          <div class="metric-reading"><ha-icon icon="mdi:gas-station-outline" aria-hidden="true"></ha-icon><strong>—</strong></div>
+          <div class="metric-reading"><ha-icon icon="mdi:gas-station-outline" aria-hidden="true"></ha-icon><strong>
+            <span class="consumption-value">—</span><small class="consumption-unit" hidden>л/100&nbsp;км</small>
+          </strong></div>
         </div>
         ${this._metricTiles(2)}
       </div>
@@ -962,7 +962,7 @@ class StarLineAppPanel extends HTMLElement {
 
   _patchAll() {
     const overview = this._view === "status";
-    this.$(".app").classList.toggle("overview", overview);
+    this.$(".app").classList.toggle("nikas-shell--with-peer", !overview);
     this.$(".vehicle-selector").hidden = overview;
     const vehicles = this._orderedVehicles();
     const known = new Set(vehicles.map((vehicle) => String(vehicle.device_id)));
@@ -988,29 +988,30 @@ class StarLineAppPanel extends HTMLElement {
       const vehicle = known.has(id) ? this._vehicle(id) : null;
       button.hidden = !vehicle;
       button.classList.toggle("active", id === String(this._vehicleId));
-      button.classList.toggle("offline", vehicle ? !this._online(vehicle) : true);
       const selected = button.classList.contains("active") ? "true" : "false";
-      if (button.getAttribute("aria-selected") !== selected) button.setAttribute("aria-selected", selected);
+      this._setAttribute(button, "aria-selected", selected);
+      if (!overview && vehicle) this._patchVehicleLamp(button, vehicle);
     }
     for (const button of this.$$(".bottom-nav button")) button.classList.toggle("active", button.dataset.view === this._view);
   }
 
   _patchSummary(pane, vehicle) {
     const latest = this._latestUpdate(vehicle);
-    const quality = this._quality(latest);
-    this._setClass(this.$(".summary-card", pane), "offline", quality !== "fresh");
+    const connection = this._connectionStatus();
+    this._setClass(this.$(".summary-card", pane), "offline", connection === CONNECTION_STATUS.disconnected);
     const portrait = this._portrait(vehicle);
     this._setText(pane, ".identity strong", portrait ? `Murano ${portrait}` : vehicle.name || `StarLine ${vehicle.device_id}`);
-    this._setText(pane, ".connection-status", this._hass?.connected === false ? "Нет связи с HA" :
-      quality === "fresh" ? "Данные HA" : quality === "stale" ? "Данные устарели" : "Данные недоступны");
     this._setText(pane, ".connection-time", this._formatReport(latest));
 
     const fuel = this._fuelMetric(vehicle);
     const security = this._security(vehicle);
     const power = this._overviewPower(vehicle);
+    const battery = this._batteryMetric(vehicle, power);
+    this._patchIndicator(this.$(".connection-icon", pane), connection);
+    this._patchIndicator(this.$(".freshness-icon", pane), this._summaryFreshness(fuel, battery));
     const metrics = [
       fuel,
-      this._batteryMetric(vehicle, power),
+      battery,
       power.primary,
       { label: "Охрана", value: security.label, icon: security.icon, entityId: "",
         tone: security.key === "alarm" ? "danger" : security.key === "unknown" ? "muted" : "" },
@@ -1037,13 +1038,27 @@ class StarLineAppPanel extends HTMLElement {
     this._setText(pane, ".fuel-source", this._fuelSourceText(fuel));
   }
 
+  _patchVehicleLamp(button, vehicle) {
+    const connection = this._connectionStatus();
+    const freshness = this._summaryFreshness(this._fuelMetric(vehicle), this._batteryMetric(vehicle));
+    const alarm = this._security(vehicle).key === "alarm";
+    const fault = alarm || connection === CONNECTION_STATUS.disconnected;
+    const tone = fault ? "danger" : connection === CONNECTION_STATUS.connected ? freshness.tone : "muted";
+    const label = `${button.textContent}. ${connection.label}. ${freshness.label}${alarm ? ". Тревога" : ""}`;
+    this._setAttribute(button, "data-tone", tone);
+    this._setAttribute(button, "aria-label", label);
+    this._setAttribute(button, "title", label);
+  }
+
   _patchFuelConsumption(pane, model) {
     const consumption = model?.consumption;
     const tile = this.$(".fuel-consumption", pane);
     this._setClass(tile, "muted", !consumption);
-    this._setText(tile, "strong", consumption
-      ? `≈ ${this._formatNumber(consumption.litres_per_100_km, 1)} л/100 км`
+    this._setText(tile, ".consumption-value", consumption
+      ? `≈ ${this._formatNumber(consumption.litres_per_100_km, 1)}`
       : "—");
+    const unit = this.$(".consumption-unit", tile);
+    if (unit.hidden === Boolean(consumption)) unit.hidden = !consumption;
     this._setText(pane, ".consumption-source", this._fuelConsumptionDetails(model));
   }
 
@@ -1106,11 +1121,11 @@ class StarLineAppPanel extends HTMLElement {
     const unavailable = entries.filter(([, id]) => !this._hass?.states?.[id] || UNRELIABLE_STATES.has(String(this._hass.states[id].state).toLowerCase())).length;
     const tiles = this.$$(".diag-tile", pane);
     const latest = this._latestUpdate(vehicle);
-    const quality = this._quality(latest);
+    const freshness = this._summaryFreshness(this._fuelMetric(vehicle), this._batteryMetric(vehicle));
     const values = [
       this._bootstrap?.source?.primary === "starline_telemetry" ? "StarLine Telemetry" : "Home Assistant · StarLine",
-      this._hass?.connected === false ? "Нет связи с HA" : quality === "fresh" ? "Данные HA" : quality === "stale" ? "Устарели" : "Недоступны",
-      this._formatReport(latest),
+      this._connectionStatus().label,
+      `${freshness.label} · ${this._formatReport(latest)}`,
       `${unavailable} / ${entries.length}`,
     ];
     tiles.forEach((tile, index) => this._setText(tile, "strong", values[index]));
@@ -1283,10 +1298,43 @@ class StarLineAppPanel extends HTMLElement {
     if (this._view === "trips") this._ensureMap();
   }
 
+  _setRefreshState(state) {
+    const button = this.$(".refresh");
+    const feedback = this.$(".refresh-feedback");
+    const { icon, label } = REFRESH_PRESENTATION[state];
+    button.disabled = state === "busy";
+    this._setAttribute(button, "data-refresh-state", state);
+    this._setAttribute(button, "aria-busy", String(button.disabled));
+    this._setAttribute(button, "aria-label", label);
+    this._setIcon(button, "ha-icon", icon);
+    this._setClass(feedback, "error", state === "error");
+    this._setText(this.shadowRoot, ".refresh-feedback", state === "success" || state === "error" ? label : "");
+  }
+
+  async _refreshData() {
+    if (this._hass?.connected === false || this._fuelSaving.size) return false;
+    const historyVehicle = ["history", "trips"].includes(this._view) ? this._vehicle() : null;
+    const refreshed = await this._loadBootstrap(true);
+    if (!historyVehicle) return refreshed;
+    return (await this._ensureHistory(true, historyVehicle)) && refreshed;
+  }
+
   async _refresh() {
-    if (this._fuelSaving.size) return;
-    await this._loadBootstrap(true);
-    if (["history", "trips"].includes(this._view)) await this._ensureHistory(true);
+    if (this._refreshRequest) return;
+    clearTimeout(this._refreshResultTimer);
+    const request = this._refreshRequest = Symbol();
+    this._setRefreshState("busy");
+    const [refreshed] = await Promise.all([
+      this._refreshData().catch(() => false),
+      new Promise((resolve) => setTimeout(resolve, REFRESH_BUSY_MS)),
+    ]);
+    if (!this.isConnected || this._refreshRequest !== request) return;
+    this._refreshRequest = null;
+    this._setRefreshState(refreshed ? "success" : "error");
+    this._refreshResultTimer = setTimeout(() => {
+      this._refreshResultTimer = null;
+      this._setRefreshState("idle");
+    }, REFRESH_RESULT_MS);
   }
 
   _handleContentClick(event) {
@@ -1336,12 +1384,11 @@ class StarLineAppPanel extends HTMLElement {
     return `history/period/${encodeURIComponent(start.toISOString())}?${params}`;
   }
 
-  async _ensureHistory(force = false) {
-    const vehicle = this._vehicle();
-    if (!vehicle || !this._hass) return;
+  async _ensureHistory(force = false, vehicle = this._vehicle()) {
+    if (!vehicle || !this._hass || this._hass.connected === false) return false;
     const id = String(vehicle.device_id);
-    if (!force && this._history.has(id)) { this._renderAsync(id); return; }
-    if (this._historyLoading.has(id)) return;
+    if (!force && this._history.has(id)) { this._renderAsync(id); return true; }
+    if (this._historyLoading.has(id)) return false;
     this._historyLoading.add(id);
     this._historyErrors.delete(id);
     this._renderAsync(id);
@@ -1369,8 +1416,10 @@ class StarLineAppPanel extends HTMLElement {
       }
       const points = this._pointsFromHistory(location?.entityId, locationPayload);
       this._history.set(id, { events: events.slice(0, 100), points, trips: this._buildTrips(points), source, loadedAt: Date.now() });
+      return true;
     } catch (err) {
       this._historyErrors.set(id, err?.message || String(err));
+      return false;
     } finally {
       this._historyLoading.delete(id);
       this._renderAsync(id);

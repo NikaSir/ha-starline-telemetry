@@ -27,6 +27,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.storage import Store
+from homeassistant.loader import async_get_integration
 
 from .api import (
     StarLineApiError,
@@ -330,7 +331,7 @@ async def _refresh_core_starline(hass: HomeAssistant, user: User) -> bool:
         if previous is not None and time.monotonic() - previous[0] < _CORE_REFRESH_SECONDS:
             return previous[1]
         try:
-            await hass.services.async_call(
+            result = await hass.services.async_call(
                 CORE_STARLINE_DOMAIN,
                 "update_state",
                 blocking=True,
@@ -340,7 +341,7 @@ async def _refresh_core_starline(hass: HomeAssistant, user: User) -> bool:
             _LOGGER.warning("Unable to refresh core StarLine data through Home Assistant")
             refreshed = False
         else:
-            refreshed = True
+            refreshed = result is not False
         domain_data[_DATA_CORE_REFRESH] = (time.monotonic(), refreshed)
         return refreshed
 
@@ -365,6 +366,7 @@ async def _live_security_state(
 
         source = "unavailable"
         arm: bool | None = None
+        refreshed = False
         client = _telemetry_client_for_device(hass, device_id)
         if client is not None:
             try:
@@ -374,16 +376,18 @@ async def _live_security_state(
                 data = await client.async_get_device_data(int(device_id))
             arm = _normalize_arm(data.get("state", {}).get("arm"))
             source = "starline_open_api"
+            refreshed = True
         else:
             account, device = _core_runtime_device(hass, device_id)
             if force and not core_refreshed and account is not None:
                 try:
-                    await account.update()
+                    core_refreshed = await account.update() is not False
                 except Exception as err:  # noqa: BLE001
                     _LOGGER.warning("Unable to refresh core StarLine state: %s", err)
             if force and device is not None:
                 arm = _normalize_arm(getattr(device, "car_state", {}).get("arm"))
                 source = "core_starline_runtime"
+                refreshed = core_refreshed
             elif token := _core_token_for_device(hass, device_id):
                 try:
                     data = await async_fetch_device_data(
@@ -391,6 +395,7 @@ async def _live_security_state(
                     )
                     arm = _normalize_arm(data.get("state", {}).get("arm"))
                     source = "starline_open_api"
+                    refreshed = True
                 except StarLineApiError as err:
                     _LOGGER.warning("Unable to read current StarLine security: %s", err)
             if arm is None and device is not None:
@@ -402,6 +407,7 @@ async def _live_security_state(
             "source": source,
             "fetched_at": datetime.now(UTC).isoformat(),
             "cached": False,
+            "refresh_ok": refreshed,
         }
         cache[device_id] = {"loaded_at": time.monotonic(), "payload": payload}
         return payload
@@ -434,6 +440,11 @@ async def _bootstrap_payload_live(
             vehicle["live_security"] = result
         await _async_attach_fuel_calibration(hass, vehicle, user)
     payload["reports"] = _report_times(hass, vehicles, user)
+    if force:
+        payload["refresh_ok"] = bool(security) and all(
+            isinstance(result, dict) and result.get("refresh_ok") is True
+            for result in security
+        )
     return payload
 
 
@@ -753,7 +764,26 @@ async def async_register_native_panel(hass: HomeAssistant, entry: ConfigEntry) -
         _LOGGER.error("Cannot register StarLine panel: /%s is already used by another panel", PANEL_URL_PATH)
         return
     try:
-        await panel_custom.async_register_panel(hass=hass, frontend_url_path=PANEL_URL_PATH, webcomponent_name=PANEL_COMPONENT, sidebar_title=PANEL_TITLE, sidebar_icon=PANEL_ICON, module_url=PANEL_MODULE, embed_iframe=False, require_admin=False, handle_safe_area=True, config={"entry_id": entry.entry_id, "panel_version": PANEL_VERSION, "parent_route": PANEL_PARENT_ROUTE, "preferred_view": PANEL_PREFERRED_VIEW, "bootstrap_fallback": _bootstrap_payload(hass, entry)})
+        integration = await async_get_integration(hass, DOMAIN)
+        await panel_custom.async_register_panel(
+            hass=hass,
+            frontend_url_path=PANEL_URL_PATH,
+            webcomponent_name=PANEL_COMPONENT,
+            sidebar_title=PANEL_TITLE,
+            sidebar_icon=PANEL_ICON,
+            module_url=PANEL_MODULE,
+            embed_iframe=False,
+            require_admin=False,
+            handle_safe_area=True,
+            config={
+                "entry_id": entry.entry_id,
+                "panel_version": PANEL_VERSION,
+                "integration_version": str(integration.version) if integration.version else None,
+                "parent_route": PANEL_PARENT_ROUTE,
+                "preferred_view": PANEL_PREFERRED_VIEW,
+                "bootstrap_fallback": _bootstrap_payload(hass, entry),
+            },
+        )
     except ValueError as err:
         _LOGGER.error("Unable to register StarLine native panel: %s", err)
         return

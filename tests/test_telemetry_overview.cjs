@@ -153,12 +153,28 @@ assert.equal(panel._batteryMetric(vehicle).gauge, null);
 panel._hass.states[battery] = state("12.4", "V");
 panel._hass.connected = false;
 assert.equal(panel._batteryMetric(vehicle).gauge, null);
+assert.equal(panel._connectionStatus().icon, "mdi:cloud-off-outline");
+panel._hass.connected = undefined;
+assert.equal(panel._connectionStatus().icon, "mdi:cloud-question-outline");
+panel._hass.connected = true;
+assert.equal(panel._connectionStatus().icon, "mdi:cloud");
+const freshness = () => panel._summaryFreshness(panel._fuelMetric(vehicle), panel._batteryMetric(vehicle)).icon;
+panel._hass.states[fuel] = state("0", "%");
+assert.equal(freshness(), "mdi:check-circle-outline", "a new zero fuel report is valid");
+panel._hass.states[battery] = state("12.4", "V", "2020-01-01T00:00:00Z");
+assert.equal(freshness(), "mdi:clock-alert-outline", "one old required reading makes the summary stale");
+panel._hass.states[battery] = state("unavailable", "V");
+assert.equal(freshness(), "mdi:clock-question-outline");
+panel._hass.states[battery] = state("12.4", "V", new Date(Date.now() + 30000).toISOString());
+assert.equal(freshness(), "mdi:clock-question-outline", "a future report cannot establish freshness");
 
 const textByNode = new Map();
 const consumptionPanel = Object.create(Panel.prototype);
 const pane = {};
 const tile = {};
+const unit = { hidden: true };
 consumptionPanel.$ = (selector) => {
+  if (selector === ".consumption-unit") return unit;
   assert.equal(selector, ".fuel-consumption");
   return tile;
 };
@@ -178,12 +194,14 @@ const consumed = {
   litres_per_100_km: 14.75,
 };
 consumptionPanel._patchFuelConsumption(pane, { consumption: consumed });
-assert.equal(textByNode.get("strong"), "≈ 14,8 л/100 км");
+assert.equal(textByNode.get(".consumption-value"), "≈ 14,8");
+assert.equal(unit.hidden, false);
 assert.match(textByNode.get(".consumption-source"), /35,40 л за 240,0 км/);
 assert.match(textByNode.get(".consumption-source"), /06\.05\.2025.*20:11.*18\.05\.2025.*17:54 МСК/);
 assert.match(textByNode.get(".consumption-source"), /почасовая статистика/);
 assert.equal(tile.muted, false);
 consumptionPanel._patchFuelConsumption(pane, { samples: [{}] });
-assert.equal(textByNode.get("strong"), "—");
+assert.equal(textByNode.get(".consumption-value"), "—");
+assert.equal(unit.hidden, true);
 assert.match(textByNode.get(".consumption-source"), /две записи полного бака/);
 assert.equal(tile.muted, true);

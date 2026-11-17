@@ -10,11 +10,11 @@ The bridge resolves entities from the Home Assistant entity registry by stable S
 
 When standalone telemetry becomes available, integration-owned roles (`{device_id}_{role}`) take precedence role-by-role. The panel layout does not change.
 
-## UI v0.7.0-beta007
+## UI v0.7.0-beta008
 
 The functional reference is the native StarLine mobile application, while colors, geometry and navigation remain aligned with the NikaS Home Assistant panel language.
 
-1. **Сводка** — one card per vehicle, with Murano 130 above Murano 683 in phone portrait. Fuel, average fuel consumption, battery, engine, security and perimeter states are visible with details collapsed. Each card shows the most recent reliable Home Assistant report time in Moscow time and distinguishes stale and unavailable data.
+1. **Сводка** — one card per vehicle, with Murano 130 above Murano 683 in phone portrait. Fuel, average fuel consumption, battery, engine, security and perimeter states are visible with details collapsed. Each card shows two compact icons for the Home Assistant connection and for the vehicle's fuel and battery freshness. The time under the name is the most recent valid Home Assistant report in Moscow time.
 2. **История** — the official read-only StarLine event journal when a usable session exists, with confirmed Home Assistant Recorder transitions as fallback.
 3. **Поездки** — movement history derived from recorded `device_tracker` coordinates. Home Assistant's native Map card renders the 72-hour path; trip cards estimate travelled distance from recorded GPS points.
 4. **Диагностика** — source, freshness, entity availability, entity bindings and fuel calibration.
