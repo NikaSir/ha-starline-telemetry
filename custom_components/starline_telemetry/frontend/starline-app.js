@@ -752,7 +752,7 @@ class StarLineAppPanel extends HTMLElement {
         border-radius: 18px; background: var(--surface);
       }
       .summary-hero {
-        min-width: 0; display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+        min-width: 0; display: grid; grid-template-columns: minmax(0, 9fr) minmax(0, 11fr);
         align-items: center; gap: 5px; padding: 4px 7px 4px 10px; border-radius: 12px;
         background: linear-gradient(100deg, var(--surface), color-mix(in srgb, var(--accent) 11%, var(--surface)));
       }
@@ -774,8 +774,10 @@ class StarLineAppPanel extends HTMLElement {
       .identity small { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.2; }
       .summary-car{display:block;justify-self:end;width:100%;height:clamp(76px,24vw,104px);object-fit:contain;object-position:right center}
       .summary-card.offline .summary-car{filter:grayscale(.55) saturate(.58)}
-      .metrics{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;margin-top:6px}
-      .metrics>.metric{grid-column:span 2}.metrics>.metric:nth-child(-n+2){grid-column:span 3}
+      .metrics, .metrics-primary, .metrics-secondary { display: grid; gap: 5px; }
+      .metrics { margin-top: 6px; }
+      .metrics-primary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .metrics-secondary { grid-template-columns: minmax(0, 1.13fr) repeat(2, minmax(0, 1fr)); }
       .metric {
         min-width: 0; min-height: 49px; display: grid; grid-template-rows: auto 1fr;
         gap: 3px; padding: 5px 3px; border: 1px solid var(--border); border-radius: 11px;
@@ -786,14 +788,15 @@ class StarLineAppPanel extends HTMLElement {
       .metric-reading{min-width:0;display:flex;align-items:center;justify-content:center;gap:4px}
       .metric ha-icon { flex: 0 0 auto; color: var(--blue); --mdc-icon-size: 18px; }
       .metric strong { display: block; margin: 0; font-size: 15px; line-height: 1.15; font-weight: 760; }
-      .metrics>.metric:nth-child(n+3) strong { font-size: 14px; }
-      .metrics>.metric:nth-child(n+3) ha-icon { --mdc-icon-size: 15px; }
+      .metrics-secondary .metric-reading { gap: 3px; }
+      .metrics-secondary .metric strong { font-size: 14px; }
+      .metrics-secondary .metric ha-icon { --mdc-icon-size: 15px; }
       .fuel-consumption strong { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 0 3px; }
       .consumption-value, .consumption-unit { white-space: nowrap; }
       .consumption-unit { color: var(--muted); font-size: 12px; font-weight: 500; }
       @container starline-card (max-width: 345px) {
-        .metrics>.metric:nth-child(n+4) { grid-column: span 3; }
-        .metrics>.fuel-consumption { grid-column: span 6; }
+        .metrics-secondary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .fuel-consumption { grid-column: 1 / -1; }
         .identity-heading strong { font-size: 18px; }
       }
       .metric-gauge{height:5px;margin:0 12px;border-radius:3px;background:var(--border);position:relative}
@@ -1199,14 +1202,16 @@ class StarLineAppPanel extends HTMLElement {
         ${image}
       </div>
       <div class="metrics">
-        ${this._metricTiles(2, 2)}
-        <div class="metric fuel-consumption">
-          <span>Средний расход</span>
-          <div class="metric-reading"><ha-icon icon="mdi:gas-station-outline" aria-hidden="true"></ha-icon><strong>
-            <span class="consumption-value">—</span><small class="consumption-unit" hidden>л/100&nbsp;км</small>
-          </strong></div>
+        <div class="metrics-primary">${this._metricTiles(2, 2)}</div>
+        <div class="metrics-secondary">
+          <div class="metric fuel-consumption">
+            <span>Средний расход</span>
+            <div class="metric-reading"><ha-icon icon="mdi:gas-station-outline" aria-hidden="true"></ha-icon><strong>
+              <span class="consumption-value">—</span><small class="consumption-unit" hidden>л/100&nbsp;км</small>
+            </strong></div>
+          </div>
+          ${this._metricTiles(2)}
         </div>
-        ${this._metricTiles(2)}
       </div>
       <p class="perimeter"></p>
       <details class="summary-details">

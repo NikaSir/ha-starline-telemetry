@@ -84,7 +84,7 @@ GEOMETRY = """() => {
   const header = rect(get('.app-header'));
   const bottom = rect(get('.bottom-nav'));
   const info = [...root.querySelectorAll('.summary-card')].map(card => {
-    const engine = get('.metrics .metric:nth-child(4) strong', card);
+    const engine = get('.metrics-secondary button:first-of-type strong', card);
     const engineText = document.createRange(); engineText.selectNodeContents(engine);
     const reading = get('.fuel-consumption .metric-reading', card);
     const value = get('.consumption-value', card);
@@ -122,7 +122,7 @@ def run(browser):
     page.evaluate(SETUP)
     page.add_script_tag(path=str(ROOT / "starline-app.js"))
     page.evaluate(MOUNT)
-    page.wait_for_function("root.querySelector('.metrics .metric:nth-child(4) strong')?.textContent === 'Выключено'")
+    page.wait_for_function("root.querySelector('.metrics-secondary button:first-of-type strong')?.textContent === 'Выключено'")
     for width, height in [(430, 932), (932, 430), (768, 1024), (1024, 768), (1440, 900), (320, 740)]:
         page.set_viewport_size({"width": width, "height": height})
         for sidebar in ([0, 256] if width >= 768 else [0]):
