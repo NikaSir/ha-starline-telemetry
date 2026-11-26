@@ -164,9 +164,9 @@ assert.equal(freshness(), "mdi:check-circle-outline", "a new zero fuel report is
 panel._hass.states[battery] = state("12.4", "V", "2020-01-01T00:00:00Z");
 assert.equal(freshness(), "mdi:clock-alert-outline", "one old required reading makes the summary stale");
 panel._hass.states[battery] = state("unavailable", "V");
-assert.equal(freshness(), "mdi:clock-question-outline");
+assert.equal(freshness(), "mdi:clock-outline");
 panel._hass.states[battery] = state("12.4", "V", new Date(Date.now() + 30000).toISOString());
-assert.equal(freshness(), "mdi:clock-question-outline", "a future report cannot establish freshness");
+assert.equal(freshness(), "mdi:clock-outline", "a future report cannot establish freshness");
 
 const textByNode = new Map();
 const consumptionPanel = Object.create(Panel.prototype);
