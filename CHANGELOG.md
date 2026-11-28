@@ -1,8 +1,12 @@
 # Changelog
 
-Current branch version is [`0.7.0-beta009`](custom_components/starline_telemetry/manifest.json).
+Current branch version is [`0.7.0-beta010`](custom_components/starline_telemetry/manifest.json).
 
 Existing version-specific notes remain under [`docs/`](docs/) and earlier project history remains in Git history; neither is reconstructed here.
+
+## 0.7.0-beta010
+
+- Show a gray outline clock and a question mark when fuel or battery freshness is unknown.
 
 ## 0.7.0-beta009
 

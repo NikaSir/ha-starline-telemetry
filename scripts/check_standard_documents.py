@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 EXPECTED = {
-    'standard': '39691a1e8ad5b98a961d518ab7b38761f3b04e7f7eb032dc19e3c68b4f249083',
+    'standard': 'be66deb5712edbd6075cc09311fdcd94025434e26c7d1a996b22588bff5547d7',
     'navigation_contract': '26269e700cffa7cc1b0a2f93ff6314ed3d366f988460168c312324511f282423',
     'refresh_contract': 'c778927d0a94aa48c818916f49fc295a60f51d26367c3c85ecb9bf789ee463e2',
     'shell_kit': '398d6ff9eb5b1fb11d771e174ae7b010908c276681b1ca14e9757073ee10bb1c',

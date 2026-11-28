@@ -63,7 +63,7 @@ MOUNT = """() => {
   window.host = document.body.appendChild(document.createElement('div'));
   host.id = 'host';
   window.panel = document.createElement('starline-app-panel');
-  panel.panel = {config:{entry_id:'test', integration_version:'0.7.0-beta009'}};
+  panel.panel = {config:{entry_id:'test', integration_version:'0.7.0-beta010'}};
   window.root = panel.shadowRoot;
   const style = document.createElement('style');
   style.textContent = 'ha-icon{display:inline-block;width:var(--mdc-icon-size,24px);height:var(--mdc-icon-size,24px);background:currentColor;border-radius:20%;mask:radial-gradient(circle, #000 38%, transparent 42%)}';
@@ -230,7 +230,12 @@ def run(browser):
     page.evaluate("states['sensor.car_683_battery'].state='unavailable'; applyHass(true, false)")
     page.clock.run_for(60)
     assert indicators.nth(2).get_attribute('icon') == 'mdi:cloud-off-outline'
-    assert indicators.nth(3).get_attribute('icon') == 'mdi:clock-question-outline'
+    assert indicators.nth(3).get_attribute('icon') == 'mdi:clock-outline'
+    freshness = page.locator('.freshness-icon').nth(1)
+    assert 'не подтверждена' in freshness.get_attribute('aria-label')
+    question = freshness.locator('.freshness-question')
+    assert question.is_visible() and question.inner_text() == '?'
+    assert question.get_attribute('aria-hidden') == 'true'
     page.evaluate('''() => {
       states['sensor.car_683_battery'].state='12.6';
       states['sensor.car_683_battery'].last_reported=new Date().toISOString();
@@ -238,6 +243,7 @@ def run(browser):
     }''')
     page.clock.run_for(60)
     assert indicators.nth(3).get_attribute('icon') == 'mdi:check-circle-outline'
+    assert not question.is_visible()
     assert page.evaluate("originalIcons.every((node,i) => root.querySelectorAll('.vehicle-indicators ha-icon')[i] === node)")
 
     page.evaluate('''() => {

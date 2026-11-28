@@ -315,7 +315,7 @@ function navigateNikasShell(path, { captureSource = false } = {}) {
   return true;
 }
 
-const UI_VERSION = "0.7.0-beta009";
+const UI_VERSION = "0.7.0-beta010";
 const ASSET_BASE = "/starline_telemetry_static/assets";
 const EVENT_WINDOW_HOURS = 24;
 const TRIP_WINDOW_HOURS = 72;
@@ -339,7 +339,7 @@ const CONNECTION_STATUS = {
 const FRESHNESS_STATUS = {
   fresh: { icon: "mdi:check-circle-outline", tone: "good", label: "Данные топлива и АКБ актуальны" },
   stale: { icon: "mdi:clock-alert-outline", tone: "warn", label: "Данные топлива и АКБ устарели" },
-  unavailable: { icon: "mdi:clock-question-outline", tone: "muted", label: "Свежесть данных топлива и АКБ не подтверждена" },
+  unavailable: { icon: "mdi:clock-outline", tone: "muted", label: "Свежесть данных топлива и АКБ не подтверждена", question: true },
 };
 const SECURITY_BOOTSTRAP_MAX_AGE_MS = 60_000;
 const FUEL_KEYS = ["fuel", "fuel_percent", "fuel_litres", "fuel_volume"];
@@ -783,6 +783,14 @@ class StarLineAppPanel extends HTMLElement {
       .identity-heading strong { font-size: 19px; font-weight: 800; line-height: 1.15; overflow-wrap: anywhere; }
       .vehicle-indicators { display: inline-flex; align-items: center; gap: 3px; flex: none; }
       .vehicle-indicators ha-icon { display: block; width: 15px; height: 15px; --mdc-icon-size: 15px; }
+      .freshness-icon { position: relative; }
+      .freshness-question:not([hidden]) {
+        display: grid; place-items: center; position: absolute;
+        inset-inline-end: -2px; inset-block-end: -1px;
+        width: 9px; height: 9px; border-radius: 50%;
+        background: var(--card-background-color, var(--primary-background-color, #fff));
+        font-size: 9px; line-height: 1; font-weight: 700;
+      }
       .vehicle-indicators [data-tone="good"] { color: var(--indicator-good, #237d43); }
       .vehicle-indicators [data-tone="warn"] { color: var(--indicator-warn, #ab5000); }
       .vehicle-indicators [data-tone="muted"] { color: var(--muted); }
@@ -1103,6 +1111,10 @@ class StarLineAppPanel extends HTMLElement {
     this._setAttribute(node, "title", spec.label);
     this._setAttribute(node, "aria-label", spec.label);
     this._setIcon(node, "ha-icon", spec.icon);
+    const question = this.$(".freshness-question", node);
+    if (question && question.hidden === Boolean(spec.question)) {
+      question.hidden = !spec.question;
+    }
   }
 
   async _loadReportTimes() {
@@ -1217,7 +1229,7 @@ class StarLineAppPanel extends HTMLElement {
             <strong></strong>
             <div class="vehicle-indicators">
               <span class="connection-icon" role="img"><ha-icon aria-hidden="true"></ha-icon></span>
-              <span class="freshness-icon" role="img"><ha-icon aria-hidden="true"></ha-icon></span>
+              <span class="freshness-icon" role="img"><ha-icon aria-hidden="true"></ha-icon><span class="freshness-question" hidden aria-hidden="true">?</span></span>
             </div>
           </div>
           <small class="connection-time" title="Последний отчёт Home Assistant"></small>
